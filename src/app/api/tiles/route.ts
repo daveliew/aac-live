@@ -39,11 +39,16 @@ Generate a JSON object following the schema.`;
 
 export async function POST(request: NextRequest) {
   try {
-    const { image } = await request.json();
+    const { image, location } = await request.json();
 
     if (!image) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 });
     }
+
+    // Build location context if available
+    const locationContext = location
+      ? `\n\nGeolocation hint: User is at coordinates (${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}). Use this to help determine if they might be indoors/outdoors.`
+      : '';
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -56,7 +61,7 @@ export async function POST(request: NextRequest) {
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash',
+      model: 'gemini-3-flash-preview',
       config: {
       tools: [{ googleSearch: {} } as unknown as Record<string, unknown>],
         responseMimeType: 'application/json',
@@ -67,7 +72,7 @@ export async function POST(request: NextRequest) {
           role: 'user',
           parts: [
             { inlineData: { mimeType: 'image/jpeg', data: image } },
-            { text: SYSTEM_PROMPT }
+            { text: SYSTEM_PROMPT + locationContext }
           ]
         }
       ]

@@ -15,14 +15,16 @@ export interface TileData {
 interface TileGridProps {
   tiles: DisplayTile[];
   isLoading?: boolean;
+  onTileSpeak?: (text: string) => void;
 }
 
-export default function TileGrid({ tiles, isLoading }: TileGridProps) {
+export default function TileGrid({ tiles, isLoading, onTileSpeak }: TileGridProps) {
   const handleTileClick = (tile: DisplayTile) => {
     // Use tts text if available, otherwise use label
     const textToSpeak = tile.tts || tile.text;
     if (textToSpeak) {
       speak(textToSpeak);
+      onTileSpeak?.(textToSpeak);
     }
   };
 
