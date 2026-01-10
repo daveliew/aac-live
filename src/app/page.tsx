@@ -555,6 +555,7 @@ export default function Home() {
             entities={state.detectedEntities}
             focusedEntity={state.focusedEntity}
             onFocus={handleEntityFocus}
+            isLoading={state.entityPhrasesLoading}
           />
           <TileGrid
             tiles={displayTiles}
@@ -562,6 +563,7 @@ export default function Home() {
             onTileSpeak={setLastSpoken}
             onNativeTTS={handleNativeTTS}
             focusedEntity={state.focusedEntity}
+            entityPhrasesLoading={state.entityPhrasesLoading}
           />
         </div>
       </div>
