@@ -5,7 +5,7 @@
 
 ---
 
-## Status: Live API Components Built, Wiring Needed
+## Status: Places API Wired, Demo Flow Ready
 
 ### Just Completed
 - **Glimpse Branding**: Identity locked ("Communication at the speed of sight")
@@ -15,14 +15,11 @@
 - **State Management**: `useAACState.ts` updated with context locking + connection modes
 - **Dual-Mode Camera**: `Camera.tsx` supports WebSocket or REST
 - **Context Lock UI**: `ContextLockIndicator.tsx` component ready
+- **Places API Integration**: `usePlaces.ts` + `/api/places` for location names
+- **Context Confirmation UI**: `ContextPrompt.tsx` shows "McDonald's?" with ✓/✗
 
 ### Next Task
-- [ ] **Wire page.tsx to Live API** (critical path)
-  - Initialize GeminiLiveClient on mount
-  - Pass `mode` and `liveClient` to Camera
-  - Handle onContext, onTiles, onAudio callbacks
-- [ ] **Add Context Confirmation UI** (Phase 1 UX)
-- [ ] **Create ShiftAlertModal** component
+- [ ] **Test Places API end-to-end** (restart dev server, grant location)
 - [ ] **Connect tile clicks to native TTS** (wow factor)
 - [ ] Test end-to-end: Live mode with native audio
 - [ ] Deploy to Vercel for hackathon demo
@@ -108,6 +105,7 @@ _Add ideas here. Human will approve and move to "Next Task"._
 |---------|-------------------|
 | Current tasks | `AGENT_HANDOFF.md` |
 | Model IDs & API | `CLAUDE.md` → Gemini Integration |
+| Environment keys | `CLAUDE.md` → Environment |
 | Affirmation logic | `ai_docs/AAC_DOMAIN.md` |
 | API mechanics | `ai_docs/GEMINI_API.md` |
 | Deployment strategy | `ai_docs/DEPLOYMENT.md` |

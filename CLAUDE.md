@@ -18,14 +18,19 @@ npm run lint     # ESLint check
 ## Environment
 
 ```
-GEMINI_API_KEY=your_key_here   # SINGLE KEY - used for ALL Gemini APIs
+GEMINI_API_KEY=your_key_here          # Gemini AI (vision, TTS, Live API)
+GOOGLE_PLACES_API_KEY=your_key_here   # Google Places API (optional, for location names)
 ```
 
-> [!CAUTION]
-> **SINGLE KEY POLICY**: This project uses ONE environment variable only.
-> - `GEMINI_API_KEY` is the ONLY key variable
-> - Exposed to client via `next.config.ts` `env` block
-> - NEVER use `NEXT_PUBLIC_GEMINI_API_KEY` or separate client keys
+| Key | Source | Required | Purpose |
+|-----|--------|----------|---------|
+| `GEMINI_API_KEY` | [AI Studio](https://aistudio.google.com) | Yes | Gemini models (vision + audio) |
+| `GOOGLE_PLACES_API_KEY` | [Cloud Console](https://console.cloud.google.com) | Optional | Place names ("McDonald's?" vs "Restaurant?") |
+
+> [!NOTE]
+> - `GEMINI_API_KEY` is exposed to client via `next.config.ts` for Live API WebSocket
+> - `GOOGLE_PLACES_API_KEY` is server-only (used in `/api/places` route)
+> - If Places key missing, app falls back to generic context names
 
 ## Architecture: Live-First Hybrid
 
@@ -38,6 +43,20 @@ Camera.tsx ──► gemini-live.ts ──► Gemini 2.5 Live ──► Native A
 FALLBACK (REST API - HTTP):
 Camera.tsx ──► /api/tiles ──► Gemini 3 Flash ──► tiles.ts ──► Browser TTS
 (1 FPS)       (POST)          (vision)           (grid)       (fallback)
+
+PLACES (GPS → Place Name):
+Geolocation ──► usePlaces ──► /api/places ──► Google Places API ──► "McDonald's"
+(on mount)      (hook)        (POST)           (nearby search)       (placeName)
+```
+
+### Demo Flow (McDonald's Example)
+```
+1. App loads → gets GPS coordinates
+2. usePlaces fetches nearby places → "McDonald's"
+3. Camera sees restaurant → Gemini detects "restaurant_counter"
+4. ContextPrompt shows: "McDonald's?" with ✓/✗ buttons
+5. User taps ✓ → tiles lock to restaurant set
+6. User taps "I want to order" → native audio speaks
 ```
 
 ### Models
@@ -52,10 +71,12 @@ Camera.tsx ──► /api/tiles ──► Gemini 3 Flash ──► tiles.ts ─�
 | `src/lib/gemini-live.ts` | WebSocket client for Gemini 2.5 Live API |
 | `src/app/page.tsx` | State orchestration, Live API init, main layout |
 | `src/app/api/tiles/route.ts` | REST fallback: Gemini 3 → ContextClassification |
+| `src/app/api/places/route.ts` | Google Places API → nearby place names |
+| `src/hooks/usePlaces.ts` | Fetches place name from GPS coordinates |
 | `next.config.ts` | Exposes GEMINI_API_KEY to client via env block |
 | `src/lib/tiles.ts` | Affirmation logic + Grid generation engine |
 | `src/components/Camera.tsx` | Dual-mode: WebSocket stream or REST POST |
-| `src/components/ContextLockIndicator.tsx` | Shows locked context + connection mode |
+| `src/components/ContextPrompt.tsx` | Context confirmation UI ("McDonald's? ✓/✗") |
 | `src/components/TileGrid.tsx` | Tile display + click → native audio |
 | `src/lib/tts.ts` | Browser TTS (REST fallback only) |
 
