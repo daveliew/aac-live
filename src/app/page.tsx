@@ -252,7 +252,7 @@ export default function Home() {
           payload: {
             placeName: nearestPlaceRef.current?.name || null,
             areaName: null,
-            context: data.affirmation.finalContext
+            context: data.affirmation?.finalContext || data.classification.primaryContext
           }
         });
       }
