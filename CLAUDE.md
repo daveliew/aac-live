@@ -1,11 +1,11 @@
-# Glimpse (CLAUDE.md)
+# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Guardrails
 
 > [!IMPORTANT]
-> **Mandatory Action**: Run `/handoff-check` before starting any new task. This ensures you are working on approved items and following the handoff protocol defined in [AGENT_HANDOFF.md](file:///Users/dave/CODE/LEARNING/gemini/aac-live/AGENT_HANDOFF.md).
+> **Mandatory Action**: Check `AGENT_HANDOFF.md` before starting work. Only work on tasks in "Next Task" section.
 
 ## Commands
 
@@ -17,115 +17,82 @@ npm run lint     # ESLint check
 
 ## Environment
 
-```
-GEMINI_API_KEY=your_key_here          # Gemini AI (vision, TTS, Live API)
-GOOGLE_PLACES_API_KEY=your_key_here   # Google Places API (optional, for location names)
-```
-
-| Key | Source | Required | Purpose |
-|-----|--------|----------|---------|
-| `GEMINI_API_KEY` | [AI Studio](https://aistudio.google.com) | Yes | Gemini models (vision + audio) |
-| `GOOGLE_PLACES_API_KEY` | [Cloud Console](https://console.cloud.google.com) | Optional | Place names ("McDonald's?" vs "Restaurant?") |
-
-> [!NOTE]
-> - `GEMINI_API_KEY` is exposed to client via `next.config.ts` for Live API WebSocket
-> - `GOOGLE_PLACES_API_KEY` is server-only (used in `/api/places` route)
-> - If Places key missing, app falls back to generic context names
-
-## Architecture: Live-First Hybrid
-
-### Data Flow
-```
-PRIMARY (Live API - WebSocket):
-Camera.tsx ──► gemini-live.ts ──► Gemini 2.5 Live ──► Native Audio + Tiles
-(1 FPS)       (WebSocket)        (real-time)         (wow factor)
-
-FALLBACK (REST API - HTTP):
-Camera.tsx ──► /api/tiles ──► Gemini 3 Flash ──► tiles.ts ──► Browser TTS
-(1 FPS)       (POST)          (vision)           (grid)       (fallback)
-
-PLACES (GPS → Place Name):
-Geolocation ──► usePlaces ──► /api/places ──► Google Places API ──► "McDonald's"
-(on mount)      (hook)        (POST)           (nearby search)       (placeName)
+```bash
+GEMINI_API_KEY=your_key_here          # Required: Gemini AI (mapped to NEXT_PUBLIC_ in next.config.ts)
+GOOGLE_PLACES_API_KEY=your_key_here   # Optional: Place names ("McDonald's" vs "Restaurant")
 ```
 
-### Demo Flow (McDonald's Example)
+- `GEMINI_API_KEY` exposed to client for Live API WebSocket
+- `GOOGLE_PLACES_API_KEY` server-only (used in `/api/places` route)
+
+## Architecture: Hybrid Mode
+
+**Current Mode**: REST for classification (stable) + Live API for TTS (wow factor)
+
 ```
-1. App loads → gets GPS coordinates
-2. usePlaces fetches nearby places → "McDonald's"
-3. Camera sees restaurant → Gemini detects "restaurant_counter"
-4. ContextPrompt shows: "McDonald's?" with ✓/✗ buttons
-5. User taps ✓ → tiles lock to restaurant set
-6. User taps "I want to order" → native audio speaks
+CLASSIFICATION (REST - reliable):
+Camera.tsx ──► /api/tiles ──► Gemini 3 Flash ──► tiles.ts ──► UI tiles
+(1 FPS)        (POST)         (vision)          (grid gen)
+
+TTS (Live API - native audio):
+Tile click ──► gemini-live.ts ──► Gemini 2.5 Live ──► Native audio playback
+               (WebSocket)        (requestTTS)
+
+LOCATION (GPS → Place Name):
+Geolocation ──► usePlaces ──► /api/places ──► Google Places ──► "McDonald's"
 ```
 
 ### Models
-| Layer | Model | API |
-|-------|-------|-----|
-| Primary | `gemini-2.5-flash-native-audio-preview-12-2025` | WebSocket |
-| Fallback | `gemini-3-flash-preview` | REST |
+| Purpose | Model | API |
+|---------|-------|-----|
+| Scene Classification | `gemini-3-flash-preview` | REST |
+| Native TTS | `gemini-2.5-flash-native-audio-preview-12-2025` | WebSocket |
 
-### Key Files
+### Key Architectural Files
 | File | Purpose |
 |------|---------|
-| `src/lib/gemini-live.ts` | WebSocket client for Gemini 2.5 Live API |
-| `src/app/page.tsx` | State orchestration, Live API init, main layout |
-| `src/app/api/tiles/route.ts` | REST fallback: Gemini 3 → ContextClassification |
-| `src/app/api/places/route.ts` | Google Places API → nearby place names |
-| `src/hooks/usePlaces.ts` | Fetches place name from GPS coordinates |
-| `src/hooks/useAACState.ts` | Central state: context, tiles, entities, focus |
-| `next.config.ts` | Exposes GEMINI_API_KEY to client via env block |
-| `src/lib/tiles.ts` | Affirmation logic + Grid generation + ENTITY_TILE_MAP |
-| `src/components/Camera.tsx` | Dual-mode: WebSocket stream or REST POST |
-| `src/components/ContextPrompt.tsx` | Context confirmation UI ("McDonald's? ✓/✗") |
-| `src/components/EntityChips.tsx` | Tappable entity chips ("I see: 🎢 Swing") |
-| `src/components/TileGrid.tsx` | Tile display + entity highlighting + click → audio |
-| `src/lib/tts.ts` | Browser TTS (REST fallback only) |
+| `src/app/page.tsx` | State orchestration, Live API init, hybrid mode flag |
+| `src/hooks/useAACState.ts` | Central reducer: context, tiles, entities, session location |
+| `src/lib/gemini-live.ts` | WebSocket client (2-min session limit → auto-reconnect) |
+| `src/lib/tiles.ts` | Tile definitions, `TILE_SETS`, `ENTITY_TILE_MAP`, grid generation |
+| `src/app/api/tiles/route.ts` | REST: Gemini 3 → ContextClassification |
+| `src/app/api/places/route.ts` | Google Places → nearby place names |
+
+### Path Alias
+`@/*` maps to `./src/*` (configured in tsconfig.json)
 
 ### Domain Logic (`tiles.ts`)
 
-**Affirmation Thresholds**: (from `ai_docs/AAC_DOMAIN.md`)
-- **≥0.85**: Auto-proceed (no UI)
-- **≥0.60**: Quick binary confirm ("Are you at a [context]?")
-- **≥0.30**: Multi-choice disambiguation (Top 3 options)
-- **<0.30**: Full manual picker (Category search)
+**Affirmation Thresholds**:
+- ≥0.85: Auto-proceed (no UI)
+- ≥0.60: Quick binary confirm
+- ≥0.30: Multi-choice disambiguation
+- <0.30: Full manual picker
 
-**Grid Generation Engine**:
-- Always includes `CORE_TILES` (Help, Yes, No, More)
-- Dynamically selects tiles from `TILE_SETS` based on `affirmedContext`
-- Scores tiles by `priority` + entity boost (+50 if entity detected)
-- Renders in horizontal scrollable bar (compact mode)
+**Grid Generation**:
+- `CORE_TILES` always shown (Yes, No, Help, More)
+- `TILE_SETS[context]` for context-specific tiles
+- Entity detection boosts relevant tiles via `ENTITY_TILE_MAP`
 
-**Entity Chips (Interactive Object Detection)**:
-- Gemini detects entities (objects/people) in camera view
-- Entities shown as tappable chips: `I see: [🎢 Swing] [👧 Child]`
-- On tap: related tiles highlight (yellow glow) + move to front
-- Uses `ENTITY_TILE_MAP` to link entities → tile IDs
-- State: `detectedEntities[]`, `focusedEntity`
+### State Management (`useAACState.ts`)
 
-### Gemini Integration (Authoritative)
+Key state slices:
+- `sessionLocation`: Stable location for session (placeName, areaName, context)
+- `contextLocked`: Whether tiles are locked to affirmed context
+- `detectedEntities[]` / `focusedEntity`: Object detection from camera
+- `connectionMode`: 'live' | 'rest'
+- `shiftCounter`: Tracks consecutive context category changes
 
-**Primary (Live API)**:
-- Model: `gemini-2.5-flash-native-audio-preview-12-2025`
-- WebSocket streaming for real-time vision + native TTS
-- 2-minute session limit → auto-reconnect
-
-**Fallback (REST API)**:
-- Model: `gemini-3-flash-preview`
-- HTTP POST for scene classification
-- Uses `responseSchema` for strict JSON
-- **Tools**: `googleSearch` enabled
-
-**SDK**: `@google/genai`
-
-### Hackathon Context
-**Track**: Track 6 - Real-Time Multimodal
-**Mission**: Low-latency, vision-aware communication for non-verbal children.
+### Live API Notes
+- 2-minute session limit (audio+video) → auto-reconnect 10s before expiry
+- `requestTTS(phrase)` for tile click audio
+- Audio returned as `ArrayBuffer` chunks
 
 ## Multi-Agent Development
-| Agent | Primary Domain |
-|-------|----------------|
-| **Claude Code** | Architecture, Next.js, UI/UX, Git |
-| **Gemini/AG** | GenAI SDK, Models, Prompt Engineering |
 
-Coordination via `AGENT_HANDOFF.md`.
+| Agent | Role |
+|-------|------|
+| **Claude Code** | Primary steering: architecture, implementation, Git |
+| **AG/Gemini** | Research: Gemini SDK docs, prompt engineering exploration |
+
+App uses Gemini models for runtime (vision + TTS). Claude handles all code changes.
