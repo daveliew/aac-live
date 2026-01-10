@@ -60,3 +60,23 @@ interface TileData {
 ## Path Aliases
 
 `@/*` maps to `./src/*`
+
+## Multi-Agent Collaboration
+
+This project uses dual-agent development: **Claude Code** + **Gemini/Antigravity**
+
+### Role Split
+| Agent | Responsibilities |
+|-------|-----------------|
+| **Claude Code** | Architecture, file structure, Next.js patterns, React components, testing, git, deployment |
+| **Gemini/AG** | `@google/genai` SDK, prompt engineering, model selection, multimodal handling, Gemini-specific optimizations |
+
+### Coordination
+- Read `AGENT_HANDOFF.md` at start of each session
+- Update handoff file after completing work
+- Respect "Architecture Decisions (locked)" section
+- Flag conflicts in "Open Questions" rather than overwriting
+
+### Commit Convention
+- Claude commits: `feat:`, `fix:`, `refactor:` with `Co-Authored-By: Claude`
+- Gemini commits: prefix with `[gemini]` for clear attribution
