@@ -18,8 +18,8 @@ import {
 } from '@/lib/tiles';
 
 // Debounce settings
-const CONTEXT_CHANGE_THRESHOLD = 3;  // Need 3 frames agreeing before transition
-const DEBOUNCE_INTERVAL_MS = 500;    // Minimum time between context changes
+const CONTEXT_CHANGE_THRESHOLD = 1;  // Immediate: 1 frame for fast response
+const DEBOUNCE_INTERVAL_MS = 100;    // Aggressive: 100ms for near-instant updates
 
 // Context state with history for debouncing
 interface ContextState {

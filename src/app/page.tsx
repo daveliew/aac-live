@@ -185,7 +185,7 @@ export default function Home() {
     }
 
     const now = Date.now();
-    if (now - lastCaptureRef.current < 800) return;
+    if (now - lastCaptureRef.current < 300) return; // Aggressive: 300ms (~3 FPS)
     lastCaptureRef.current = now;
 
     try {
