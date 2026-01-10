@@ -27,7 +27,7 @@ export default function Home() {
   const [liveClient, setLiveClient] = useState<GeminiLiveClient | null>(null);
 
   // DEMO MODE: Force REST API for reliability (Live API disabled)
-  const FORCE_REST_MODE = false;
+  const FORCE_REST_MODE = true;
 
   // Initialize Live API on mount - NEXT_PUBLIC_ mapped from GEMINI_API_KEY via next.config.ts
   useEffect(() => {
@@ -329,10 +329,31 @@ export default function Home() {
     ? activeContext.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
     : 'Scanning...';
 
-  // Show place name prominently if available, otherwise fall back to context
+  // Cross-check: Only show place name if GPS context matches visual context
+  // This prevents showing "gyg" (restaurant) when camera sees a dev space
+  const gpsContext = nearestPlace ? (() => {
+    const typeMap: Record<string, string> = {
+      restaurant: 'restaurant', fast_food_restaurant: 'restaurant',
+      cafe: 'restaurant', food: 'restaurant',
+      playground: 'playground', park: 'playground',
+      school: 'classroom', hospital: 'medical', doctor: 'medical',
+      store: 'store', supermarket: 'store', grocery_store: 'store',
+    };
+    for (const t of nearestPlace.types) {
+      if (typeMap[t]) return typeMap[t];
+    }
+    return null;
+  })() : null;
+
+  // Only trust place name if GPS and vision agree (or no visual context yet)
+  const contextsMatch = !activeContext || !gpsContext ||
+    activeContext.includes(gpsContext) || gpsContext.includes(activeContext.split('_')[0]);
+  const showPlaceName = state.placeName && contextsMatch;
+
+  // Show place name if contexts match, otherwise just show visual context
   const placeBadge = isFeelingsMode
     ? { emoji: '🪞', primary: 'How are you feeling?', secondary: null }
-    : state.placeName
+    : showPlaceName
       ? { emoji: contextEmoji, primary: state.placeName, secondary: contextLabel }
       : { emoji: contextEmoji, primary: contextLabel, secondary: null };
 
