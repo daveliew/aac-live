@@ -12,6 +12,8 @@ export type ContextType =
     | 'home_living'
     | 'store_checkout'
     | 'medical_office'
+    | 'bathroom'
+    | 'greeting'
     | 'unknown';
 
 export interface TileDefinition {
@@ -132,6 +134,24 @@ export const TILE_SETS: Record<ContextType, TileDefinition[]> = {
     home_living: [],
     store_checkout: [],
     medical_office: [],
+    // Bathroom - urgent needs
+    bathroom: [
+        { id: 'bt_1', label: 'I need to go', tts: 'I need to use the bathroom', emoji: '🚽', priority: 10 },
+        { id: 'bt_2', label: 'Help please', tts: 'I need help please', emoji: '🙋', priority: 10 },
+        { id: 'bt_3', label: 'Wash hands', tts: 'I want to wash my hands', emoji: '🧼', priority: 8 },
+        { id: 'bt_4', label: 'All done', tts: 'I am all done', emoji: '✅', priority: 9 },
+        { id: 'bt_5', label: 'Paper please', tts: 'I need toilet paper please', emoji: '🧻', priority: 8 },
+        { id: 'bt_6', label: 'Privacy', tts: 'I need privacy please', emoji: '🚪', priority: 7 },
+    ],
+    // Greeting/Social - selfie mode, meeting people
+    greeting: [
+        { id: 'gr_1', label: 'Hello', tts: 'Hello! Nice to meet you!', emoji: '👋', priority: 10 },
+        { id: 'gr_2', label: 'I am happy', tts: 'I am feeling happy', emoji: '😊', priority: 9 },
+        { id: 'gr_3', label: 'I am sad', tts: 'I am feeling sad', emoji: '😢', priority: 9 },
+        { id: 'gr_4', label: 'Thank you', tts: 'Thank you very much', emoji: '🙏', priority: 10 },
+        { id: 'gr_5', label: 'Goodbye', tts: 'Goodbye! See you later!', emoji: '👋', priority: 8 },
+        { id: 'gr_6', label: 'My name is', tts: 'My name is', emoji: '📛', priority: 7 },
+    ],
     // Feelings mode - activated when selfie/face detected or context unknown
     // "How are you feeling?" tiles for self-expression
     unknown: [
@@ -171,11 +191,26 @@ export const ENTITY_TILE_MAP: Record<string, string[]> = {
     // Generic/Cross-context
     'water_fountain': ['rc_4'],                  // Water please
     'bathroom_sign': ['rc_8'],                   // Bathroom?
-    'toilet': ['rc_8'],
-    'restroom': ['rc_8'],
-    'adult': ['core_help', 'pg_5'],              // Help tiles
-    'parent': ['core_help'],
-    'teacher': ['core_help'],
+
+    // Bathroom entities
+    'toilet': ['bt_1', 'bt_4'],                  // I need to go, All done
+    'restroom': ['bt_1', 'bt_4'],
+    'sink': ['bt_3'],                            // Wash hands
+    'faucet': ['bt_3'],
+    'soap': ['bt_3'],                            // Wash hands
+    'soap_dispenser': ['bt_3'],
+    'toilet_paper': ['bt_5'],                    // Paper please
+    'paper_towel': ['bt_3'],                     // Wash hands
+    'mirror': ['bt_4'],                          // All done (checking appearance)
+    'towel': ['bt_3', 'bt_4'],                   // Wash hands, All done
+    // Greeting/Social entities
+    'face': ['gr_1', 'gr_2'],                    // Hello, I am happy
+    'person': ['gr_1', 'gr_4'],                  // Hello, Thank you
+    'adult': ['gr_1', 'core_help', 'pg_5'],      // Hello, Help tiles
+    'parent': ['gr_1', 'gr_4', 'core_help'],     // Hello, Thank you
+    'teacher': ['gr_1', 'gr_4', 'core_help'],    // Hello, Thank you
+    'friend': ['gr_1', 'gr_2'],                  // Hello, I am happy
+    'family': ['gr_1', 'gr_2', 'gr_4'],          // Hello, Happy, Thank you
     // Kitchen/Pantry entities
     'refrigerator': ['hk_2', 'hk_3', 'hk_4'],    // Thirsty, Juice, Milk
     'fridge': ['hk_2', 'hk_3', 'hk_4'],

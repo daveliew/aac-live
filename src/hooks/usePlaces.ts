@@ -34,6 +34,9 @@ const TYPE_TO_CONTEXT: Record<string, string> = {
   store: 'store_checkout',
   supermarket: 'store_checkout',
   grocery_store: 'store_checkout',
+  // Bathroom context (public restrooms detected via Places)
+  public_restroom: 'bathroom',
+  rest_stop: 'bathroom',
 };
 
 export function usePlaces(location: { lat: number; lng: number } | null) {
@@ -46,6 +49,7 @@ export function usePlaces(location: { lat: number; lng: number } | null) {
   });
 
   const fetchPlaces = useCallback(async (lat: number, lng: number) => {
+    console.log('[Places] Fetching places for:', lat.toFixed(4), lng.toFixed(4));
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {

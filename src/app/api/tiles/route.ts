@@ -11,7 +11,7 @@ const responseSchema = {
   properties: {
     primaryContext: {
       type: 'STRING',
-      enum: ['restaurant_counter', 'restaurant_table', 'playground', 'classroom', 'home_kitchen', 'home_living', 'store_checkout', 'medical_office', 'unknown']
+      enum: ['restaurant_counter', 'restaurant_table', 'playground', 'classroom', 'home_kitchen', 'home_living', 'store_checkout', 'medical_office', 'bathroom', 'greeting', 'unknown']
     },
     confidenceScore: { type: 'NUMBER' },
     secondaryContexts: {
@@ -34,7 +34,11 @@ Identify:
 2. ENTITIES: Objects and people visible that might be relevant for communication
 3. SITUATION: A brief description of what's happening
 
-Allowed Contexts: restaurant_counter, restaurant_table, playground, classroom, home_kitchen, home_living, store_checkout, medical_office, unknown.
+Allowed Contexts: restaurant_counter, restaurant_table, playground, classroom, home_kitchen, home_living, store_checkout, medical_office, bathroom, greeting, unknown.
+
+Special context rules:
+- bathroom: toilets, sinks, restrooms, bathroom fixtures
+- greeting: faces visible (especially in selfie/front camera mode), meeting people, social situations
 
 Be conservative with confidence. If unsure, use lower confidence (0.0 - 1.0).
 
