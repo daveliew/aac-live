@@ -22,8 +22,8 @@ export default function TileGrid({ tiles, isLoading, onTileSpeak }: TileGridProp
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-3 gap-3 w-full max-w-sm mx-auto">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
           <Tile
             key={i}
             text=""
@@ -31,6 +31,7 @@ export default function TileGrid({ tiles, isLoading, onTileSpeak }: TileGridProp
             color="bg-white/20"
             onClick={() => {}}
             isLoading={true}
+            compact
           />
         ))}
       </div>
@@ -39,27 +40,38 @@ export default function TileGrid({ tiles, isLoading, onTileSpeak }: TileGridProp
 
   if (tiles.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
-        <div className="text-6xl mb-4">📸</div>
-        <h3 className="text-xl font-bold text-white mb-2">Ready to Listen & See</h3>
-        <p className="text-white/60 max-w-xs mx-auto">
-          Point the camera at your world. I&apos;ll help you find the right words.
+      <div className="flex flex-col items-center justify-center py-8 px-6 text-center">
+        <div className="text-5xl mb-3">📸</div>
+        <h3 className="text-lg font-bold text-white mb-1">Ready to Listen & See</h3>
+        <p className="text-white/60 text-sm max-w-xs mx-auto">
+          Point the camera at your world
         </p>
       </div>
     );
   }
 
+  // Split tiles: core first, then context tiles
+  const coreTiles = tiles.filter(t => t.isCore);
+  const contextTiles = tiles.filter(t => !t.isCore);
+
+  // Mixed bar: core tiles + context tiles (limit to reasonable amount)
+  const displayTiles = [...coreTiles, ...contextTiles].slice(0, 12);
+
   return (
-    <div className="grid grid-cols-3 gap-3 w-full max-w-sm mx-auto">
-      {tiles.slice(0, 9).map((tile) => (
-        <Tile
-          key={tile.id}
-          text={tile.text}
-          emoji={tile.emoji}
-          color={getTileColor(tile.id, tile.text)}
-          onClick={() => handleTileClick(tile)}
-        />
-      ))}
+    <div className="flex flex-col gap-3">
+      {/* Horizontal scrollable bar with all tiles */}
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        {displayTiles.map((tile) => (
+          <Tile
+            key={tile.id}
+            text={tile.text}
+            emoji={tile.emoji}
+            color={getTileColor(tile.id, tile.text)}
+            onClick={() => handleTileClick(tile)}
+            compact
+          />
+        ))}
+      </div>
     </div>
   );
 }
