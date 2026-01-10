@@ -52,19 +52,22 @@ export default function Home() {
     enabled: state.liveSessionActive
   });
 
-  // HYBRID MODE: REST for tiles (reliable), Live API for TTS (wow factor)
-  const USE_REST_FOR_CLASSIFICATION = true;
+  // REST-only mode: REST for tiles, dedicated TTS API for speech
+  // Live API disabled due to connection issues and latency
+  const USE_LIVE_API = false;
 
-  // Initialize Live API on mount - used for native TTS even when REST handles classification
+  // Initialize mode on mount
   useEffect(() => {
     const initializeLiveAPI = async () => {
-      try {
-        // Set REST mode for classification reliability
-        if (USE_REST_FOR_CLASSIFICATION) {
-          console.log('Hybrid mode: REST for classification, Live API for TTS');
-          dispatch({ type: 'SET_CONNECTION_MODE', payload: 'rest' });
-        }
+      // Use REST mode for everything - more reliable
+      dispatch({ type: 'SET_CONNECTION_MODE', payload: 'rest' });
 
+      if (!USE_LIVE_API) {
+        console.log('REST-only mode: Using REST for tiles + dedicated TTS API for speech');
+        return;
+      }
+
+      try {
         // next.config.ts maps GEMINI_API_KEY -> NEXT_PUBLIC_GEMINI_API_KEY for client access
         const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
