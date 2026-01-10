@@ -100,8 +100,8 @@ const MAJOR_SHIFT_CONFIDENCE = 0.8;
 const INITIAL_STATE: AACState = {
     isLoading: false,
 
-    // Connection - start with live, fallback to rest
-    connectionMode: 'live',
+    // Connection - start with rest (default), upgrade to live if key available
+    connectionMode: 'rest',
     liveSessionActive: false,
 
     context: {

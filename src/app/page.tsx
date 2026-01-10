@@ -23,15 +23,19 @@ export default function Home() {
   const liveClientRef = useRef<GeminiLiveClient | null>(null);
   const [liveClient, setLiveClient] = useState<GeminiLiveClient | null>(null);
 
-  // Initialize Live API on mount
+  // Initialize Live API on mount (only if NEXT_PUBLIC key is set)
   useEffect(() => {
+    // Live API requires client-side key (NEXT_PUBLIC_GEMINI_API_KEY)
+    // If not set, use REST mode which uses server-side GEMINI_API_KEY
     const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
     if (!apiKey) {
-      console.warn('NEXT_PUBLIC_GEMINI_API_KEY not set, using REST mode');
+      console.log('Using REST mode (server-side GEMINI_API_KEY)');
       dispatch({ type: 'SET_CONNECTION_MODE', payload: 'rest' });
       return;
     }
+
+    console.log('Live API key found, attempting WebSocket connection...');
 
     const client = new GeminiLiveClient({
       apiKey,
