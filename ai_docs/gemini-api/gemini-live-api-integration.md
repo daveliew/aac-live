@@ -1,15 +1,18 @@
 # Gemini Multimodal Live API: Integration Learnings
 
+> **Note**: For authoritative model IDs and API versions, see `CLAUDE.md` → Gemini Integration section.
+
 Tracking technical details and implementation strategies for the Gemini Multimodal Live API in the AAC Live project.
 
 ## Core API Details
 
 ### Endpoint
 The Multimodal Live API uses WebSockets for bidirectional low-latency communication.
-- **URI:** `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BiDiGenerateContent?key=${GEMINI_API_KEY}`
+- **URI:** `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BiDiGenerateContent?key=${GEMINI_API_KEY}`
 
 ### Model Selection
-- Currently using `gemini-3-flash` for optimal performance in real-time multimodal tasks.
+- **Live API**: `gemini-live-2.5-flash-native-audio` (v1beta endpoint)
+- **REST Vision**: `gemini-3-flash`
 
 ## Messaging Workflow
 
@@ -18,7 +21,7 @@ Sent immediately after connection. Configures the model behavior, modalities, an
 ```json
 {
   "setup": {
-    "model": "models/gemini-3-flash",
+    "model": "models/gemini-live-2.5-flash-native-audio",
     "generation_config": {
       "response_modalities": ["AUDIO", "TEXT"],
       "speech_config": {

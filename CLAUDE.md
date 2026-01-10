@@ -22,8 +22,8 @@ Two modes of operation:
 
 ### Snapshot Mode (REST API)
 ```
-Camera.tsx ──► /api/tiles ──► TileGrid.tsx ──► tts.ts
-(capture)     (Gemini 3)     (render)        (speak)
+Camera.tsx ──► /api/tiles ──► tiles.ts (logic) ──► TileGrid.tsx ──► tts.ts
+(capture)     (Gemini 3)     (affirm/grid)      (render)        (speak)
 ```
 
 ### Live Mode (WebSocket)
@@ -36,65 +36,45 @@ Camera.tsx ──► gemini-live.ts ──► TileGrid.tsx ──► tts.ts
 | File | Purpose |
 |------|---------|
 | `src/app/page.tsx` | State orchestration, main layout |
-| `src/app/api/tiles/route.ts` | Gemini 3 vision → JSON tiles |
-| `src/lib/tiles.ts` | Affirmation logic + grid generation |
-| `src/lib/gemini-live.ts` | WebSocket Live API client |
+| `src/app/api/tiles/route.ts` | Gemini 3 vision → ContextClassification |
+| `src/lib/tiles.ts` | Affirmation logic + Grid generation engine |
+| `src/lib/gemini-live.ts` | WebSocket Live API client (Multimodal) |
 | `src/components/Camera.tsx` | Video capture + frame extraction |
 | `src/components/TileGrid.tsx` | Tile display + click handler |
 | `src/lib/tts.ts` | Web Speech API text-to-speech |
 
 ### Domain Logic (`tiles.ts`)
 
-**Affirmation Thresholds** (confidence-based context confirmation):
-- ≥0.85: Auto-proceed (no UI)
-- ≥0.60: Quick binary confirm
-- ≥0.30: Multi-choice disambiguation
-- <0.30: Full manual picker
+**Affirmation Thresholds**: (from `aac_module_specs.md`)
+- **≥0.85**: Auto-proceed (no UI)
+- **≥0.60**: Quick binary confirm ("Are you at a [context]?")
+- **≥0.30**: Multi-choice disambiguation (Top 3 options)
+- **<0.30**: Full manual picker (Category search)
 
-**Grid Generation**:
-- CORE_TILES (Help, Yes, No, More) always included
-- Context tiles from TILE_SETS scored by priority
-- Top N tiles selected, arranged in 3-4 column grid
+**Grid Generation Engine**:
+- Always includes `CORE_TILES` (Help, Yes, No, More)
+- Dynamically selects tiles from `TILE_SETS` based on `affirmedContext`
+- Scores tiles by `priority` + frequency (if profile available)
+- Renders in 3xN or 4xN grid based on `gridSize`
 
-**Context Types**: `restaurant_counter`, `playground`, `classroom`, `home_kitchen`, `home_living`, `store_checkout`, `medical_office`, `unknown`
-
-### Gemini 3 Integration
-- **Vision Model**: `gemini-3-flash-preview` (structured JSON output)
-- **Live API Model**: `gemini-2.5-flash-native-audio-preview-12-2025` (WebSocket - Gemini 3 doesn't support Live API yet)
+### Gemini Integration (Authoritative)
+- **Vision Model (REST)**: `gemini-3-flash`
+  - Uses `responseSchema` for strict JSON.
+  - **Tools**: `googleSearch` enabled for smarter context/entity discovery.
+  - Returns `ContextClassification`.
+- **Live API (WebSocket)**: `gemini-live-2.5-flash-native-audio`
+  - Leverages `v1beta` endpoint.
+  - Supports `thinking_level` and `media_resolution`.
 - **SDK**: `@google/genai`
-- **Fallback**: Basic Help/Yes/No tiles on error
 
-> **Note**: Always use `gemini-3-flash-preview` (not `gemini-3-flash`). For Live API, Gemini 3 support is pending - use 2.5 native audio model.
-
-### Key Types
-```typescript
-// UI layer (components)
-interface TileData { id: number; text: string; emoji: string; isSuggested?: boolean; }
-
-// Domain layer (lib/tiles.ts)
-interface TileDefinition { id: string; label: string; tts: string|null; emoji: string; priority: number; }
-interface GridTile extends TileDefinition { position: number; row: number; col: number; }
-```
-
-## Stack
-
-- Next.js 16 (App Router)
-- React 19
-- TypeScript (strict)
-- Tailwind CSS 4
-- Gemini AI via `@google/genai`
-
-## Hackathon Context
-
+### Hackathon Context
 **Track**: Track 6 - Real-Time Multimodal
-**Innovation**: Vision-first AAC (no symbol training required)
-**Target**: Non-verbal children (autism, apraxia)
+**Mission**: Low-latency, vision-aware communication for non-verbal children.
 
 ## Multi-Agent Development
+| Agent | Primary Domain |
+|-------|----------------|
+| **Claude Code** | Architecture, Next.js, UI/UX, Git |
+| **Gemini/AG** | GenAI SDK, Models, Prompt Engineering |
 
-| Agent | Role |
-|-------|------|
-| **Claude Code** | Architecture, React, Next.js, git |
-| **Gemini/AG** | SDK, prompts, model config |
-
-Coordinate via `AGENT_HANDOFF.md`.
+Coordination via `AGENT_HANDOFF.md`.

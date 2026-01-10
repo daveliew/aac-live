@@ -1,0 +1,57 @@
+---
+title: Core Flow - Context Affirmation → Grid Generation
+---
+
+sequenceDiagram
+    participant Child
+    participant App as App UI
+    participant Cam as Camera
+    participant Flash as Gemini 3 Flash
+    participant Affirm as Affirmation Module
+    participant Grid as Grid Generator
+    participant Bank as Tile Bank
+    participant TTS as TTS Engine
+
+    Note over Child,TTS: PHASE 1: Context Capture & Classification
+    
+    Child->>App: Opens app / Needs help
+    App->>Cam: Capture scene
+    Cam->>Flash: Image + "Classify this situation"
+    
+    Flash->>Flash: Scene analysis<br/>(media_resolution: medium)
+    Flash-->>Affirm: {context: "restaurant_counter",<br/>confidence: 0.87,<br/>entities: ["menu", "cashier", "queue"]}
+
+    Note over Child,TTS: PHASE 2: Context Affirmation (Confidence Gate)
+    
+    alt confidence >= 0.8
+        Affirm->>Affirm: Auto-affirm
+        Affirm-->>Grid: Proceed with context
+    else confidence 0.5-0.8
+        Affirm->>App: Show disambiguation<br/>"Are you at a restaurant?"
+        App->>Child: Display 2-3 context options
+        Child->>App: Confirms or selects alternative
+        App-->>Grid: Affirmed context
+    else confidence < 0.5
+        Affirm->>App: Show manual context picker
+        App->>Child: Full context menu
+        Child->>App: Selects context
+        App-->>Grid: Manual context
+    end
+
+    Note over Child,TTS: PHASE 3: Grid Generation
+    
+    Grid->>Bank: Query tiles for "restaurant_counter"
+    Bank-->>Grid: Matched tiles (15 candidates)
+    
+    Grid->>Grid: Apply priority ranking:<br/>1. Core tiles (Help, Yes, No)<br/>2. High-frequency for context<br/>3. Entity-specific (menu items)
+    
+    Grid->>Grid: Compose layout (3x3 grid)
+    Grid-->>App: Grid instance with 9 tiles
+
+    Note over Child,TTS: PHASE 4: Interaction & Output
+    
+    App->>Child: Display grid
+    Child->>App: Taps "I want to order"
+    App->>TTS: Play phrase
+    TTS-->>Child: "I would like to order please"
+    App->>App: Log interaction for learning

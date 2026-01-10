@@ -1,5 +1,7 @@
 # Gemini Live API Research - AAC Implementation
 
+> **Note**: For authoritative model IDs, see `CLAUDE.md` → Gemini Integration section.
+
 *Research compiled for hackathon team consideration*
 
 ## Executive Summary
@@ -17,12 +19,11 @@ Gemini Live API enables real-time bidirectional streaming of audio + video via W
 - **Affective dialog** - adapts to input emotion/tone
 - **Native audio output** with natural voice synthesis (24kHz)
 
-### Models
+### Models (Current)
 | Model | Use Case |
 |-------|----------|
-| `gemini-2.5-flash-native-audio-preview-12-2025` | Native audio output |
-| `gemini-2.0-flash-exp` | General Live API |
-| `gemini-live-2.5-flash-preview` | Latest Live variant |
+| `gemini-live-2.5-flash-native-audio` | Live API (WebSocket) |
+| `gemini-3-flash` | REST Vision API |
 
 ### Session Limits (Critical)
 | Session Type | Duration Limit |
@@ -65,14 +66,14 @@ Snapshot mode by default + Optional "Go Live" toggle
 
 ### WebSocket Connection
 ```typescript
-const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BiDiGenerateContent?key=${apiKey}`;
+const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BiDiGenerateContent?key=${apiKey}`;
 ```
 
 ### Setup Message Structure
 ```javascript
 {
   setup: {
-    model: "models/gemini-2.0-flash-exp",
+    model: "models/gemini-live-2.5-flash-native-audio",
     generation_config: {
       response_modalities: ["AUDIO", "TEXT"],
       speech_config: {

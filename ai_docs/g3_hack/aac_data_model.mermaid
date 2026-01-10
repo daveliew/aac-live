@@ -1,0 +1,117 @@
+---
+title: AAC System - Data Model (ERD)
+---
+
+erDiagram
+    CLIENT ||--o{ SESSION : has
+    CLIENT ||--o{ CUSTOM_TILE : owns
+    CLIENT }|--|| CLIENT_PROFILE : has
+    
+    SESSION ||--o{ CONTEXT_CAPTURE : contains
+    SESSION ||--o{ TILE_INTERACTION : logs
+    
+    CONTEXT_CAPTURE ||--|| CONTEXT_CLASSIFICATION : produces
+    CONTEXT_CLASSIFICATION ||--o{ GRID_INSTANCE : generates
+    
+    GRID_INSTANCE ||--|{ GRID_TILE : contains
+    GRID_TILE }o--|| TILE : references
+    
+    TILE }o--o{ CONTEXT_TAG : tagged_with
+    CONTEXT_TAG }o--o{ CONTEXT_CLASSIFICATION : matches
+
+    CLIENT {
+        string id PK
+        string name
+        int age
+        string[] communication_level
+        string[] preferences
+    }
+    
+    CLIENT_PROFILE {
+        string client_id FK
+        string[] frequent_contexts
+        string[] preferred_tiles
+        string[] avoided_tiles
+        json accessibility_settings
+    }
+    
+    SESSION {
+        string id PK
+        string client_id FK
+        datetime started_at
+        datetime ended_at
+        string caregiver_id
+    }
+    
+    CONTEXT_CAPTURE {
+        string id PK
+        string session_id FK
+        blob image_data
+        datetime captured_at
+        string capture_type "camera|manual|audio"
+    }
+    
+    CONTEXT_CLASSIFICATION {
+        string id PK
+        string capture_id FK
+        string primary_context "restaurant|playground|classroom|home"
+        string[] secondary_contexts
+        float confidence_score
+        json entities_detected
+        string situation_inference
+        boolean affirmed
+        string affirmed_by "auto|caregiver|child"
+    }
+    
+    TILE {
+        string id PK
+        string type "core|context|custom"
+        string label
+        string image_url
+        string audio_url
+        string tts_text
+        int display_priority
+        boolean is_active
+    }
+    
+    CONTEXT_TAG {
+        string id PK
+        string tag_name "food_ordering|playground|greeting|emergency"
+        string category "location|activity|social|need"
+    }
+    
+    GRID_INSTANCE {
+        string id PK
+        string classification_id FK
+        int grid_size "6|9|12"
+        string layout_type "standard|priority|categorical"
+        datetime generated_at
+    }
+    
+    GRID_TILE {
+        string grid_id FK
+        string tile_id FK
+        int position
+        int row
+        int col
+        float relevance_score
+    }
+    
+    TILE_INTERACTION {
+        string id PK
+        string session_id FK
+        string tile_id FK
+        string grid_id FK
+        datetime tapped_at
+        boolean speech_played
+        string outcome "success|retry|abandoned"
+    }
+    
+    CUSTOM_TILE {
+        string id PK
+        string client_id FK
+        string base_tile_id FK
+        string custom_label
+        string custom_image_url
+        string custom_tts_text
+    }
