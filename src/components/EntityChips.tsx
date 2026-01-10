@@ -118,8 +118,18 @@ export default function EntityChips({ entities, focusedEntity, onFocus, isLoadin
             </>
           )}
 
-          {/* Entity chips */}
-          {entities.slice(0, 5).map((entity) => {
+          {/* Entity chips - focused entity always first */}
+          {(() => {
+            // Reorder to put focused entity first (keeps it visible)
+            let orderedEntities = entities;
+            if (focusedEntity && entities.includes(focusedEntity)) {
+              orderedEntities = [
+                focusedEntity,
+                ...entities.filter(e => e !== focusedEntity)
+              ];
+            }
+            return orderedEntities.slice(0, 5);
+          })().map((entity) => {
             const isFocused = focusedEntity === entity;
             const emoji = getEntityEmoji(entity);
 

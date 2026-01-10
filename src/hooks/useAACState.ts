@@ -452,15 +452,18 @@ function aacReducer(state: AACState, action: AACAction): AACState {
             };
 
         // Entity detection actions
-        case 'SET_ENTITIES':
+        case 'SET_ENTITIES': {
+            let newEntities = action.payload;
+            // Keep focused entity in list even if not detected anymore
+            // This prevents confusion when child is exploring phrases
+            if (state.focusedEntity && !newEntities.includes(state.focusedEntity)) {
+                newEntities = [state.focusedEntity, ...newEntities];
+            }
             return {
                 ...state,
-                detectedEntities: action.payload,
-                // Clear focus if focused entity is no longer detected
-                focusedEntity: action.payload.includes(state.focusedEntity || '')
-                    ? state.focusedEntity
-                    : null
+                detectedEntities: newEntities,
             };
+        }
 
         case 'FOCUS_ENTITY': {
             const focusedEntity = action.payload;

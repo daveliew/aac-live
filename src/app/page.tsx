@@ -11,7 +11,7 @@ import { usePlaces } from '@/hooks/usePlaces';
 import { useAudioCapture } from '@/hooks/useAudioCapture';
 import { ContextType } from '@/lib/tiles';
 import { GeminiLiveClient, ContextClassification, LiveTile } from '@/lib/gemini-live';
-import { geminiTTS, speak } from '@/lib/tts';
+import { speak } from '@/lib/tts';
 import LocationPicker from '@/components/LocationPicker';
 
 export default function Home() {
@@ -19,7 +19,6 @@ export default function Home() {
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [lastSpoken, setLastSpoken] = useState<string | null>(null);
   const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const lastCaptureRef = useRef<number>(0);
 
   // Places API for location names (e.g., "McDonald's")
@@ -228,7 +227,9 @@ export default function Home() {
     }
 
     const now = Date.now();
-    if (now - lastCaptureRef.current < 300) return; // 300ms (~3 FPS)
+    // Slow polling when entity focused (3s) to reduce context changes while child explores phrases
+    const throttleMs = state.focusedEntity ? 3000 : 300;
+    if (now - lastCaptureRef.current < throttleMs) return;
     lastCaptureRef.current = now;
 
     try {
@@ -265,7 +266,7 @@ export default function Home() {
       console.error('Error getting tiles:', err);
       dispatch({ type: 'SET_FALLBACK_TILES' });
     }
-  }, [dispatch, location, state.connectionMode, liveClient, nearestPlace]);
+  }, [dispatch, location, state.connectionMode, state.focusedEntity, liveClient, nearestPlace]);
 
   // Apply debounced context changes
   useEffect(() => {
@@ -386,22 +387,11 @@ export default function Home() {
     }
   }, []);
 
-  // Native TTS handler - uses Gemini TTS API for natural voice
-  const handleNativeTTS = useCallback(async (text: string) => {
-    console.log('[TTS] Requesting speech:', text);
-    setIsSpeaking(true);
-    try {
-      const audioData = await geminiTTS(text);
-      console.log('[TTS] Received audio:', audioData.byteLength, 'bytes');
-      playAudio(audioData);
-    } catch (error) {
-      console.warn('[TTS] Gemini TTS failed, using browser fallback:', error);
-      speak(text);
-    } finally {
-      // Brief delay to let audio start playing before clearing indicator
-      setTimeout(() => setIsSpeaking(false), 500);
-    }
-  }, [playAudio]);
+  // TTS handler - uses browser TTS for instant playback
+  const handleNativeTTS = useCallback((text: string) => {
+    console.log('[TTS] Speaking:', text);
+    speak(text);
+  }, []);
 
   // Send debug data to localStorage for /debug page
   const sendDebugData = (data: Record<string, unknown>) => {
@@ -544,14 +534,10 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Speaking indicator / Last spoken feedback */}
-        {(isSpeaking || lastSpoken) && (
+        {/* Last spoken feedback */}
+        {lastSpoken && (
           <div className="mx-4 px-4 py-2 bg-black/40 backdrop-blur-sm rounded-full pointer-events-auto self-start">
-            {isSpeaking ? (
-              <span className="text-white/90 text-sm animate-pulse">🔊 Speaking...</span>
-            ) : (
-              <span className="text-white/90 text-sm">🗣️ &quot;{lastSpoken}&quot;</span>
-            )}
+            <span className="text-white/90 text-sm">🗣️ &quot;{lastSpoken}&quot;</span>
           </div>
         )}
 
