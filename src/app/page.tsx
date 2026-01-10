@@ -459,6 +459,24 @@ export default function Home() {
     dispatch({ type: 'HIDE_LOCATION_PICKER' });
   }, [dispatch]);
 
+  // Handler for "Find my location" - refetches GPS and places
+  const handleFindLocation = useCallback(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const newLat = pos.coords.latitude;
+          const newLng = pos.coords.longitude;
+          setLocation({ lat: newLat, lng: newLng });
+          refetchWithCoords(newLat, newLng);
+          // Clear session location so it re-detects
+          dispatch({ type: 'RESET_SHIFT_COUNTER' });
+        },
+        (err) => console.warn('GPS error:', err),
+        { enableHighAccuracy: true }
+      );
+    }
+  }, [refetchWithCoords, dispatch]);
+
   return (
     <main className="relative h-screen overflow-hidden bg-black">
       {/* Fullscreen camera background */}
@@ -513,8 +531,10 @@ export default function Home() {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Entity chips + Tiles at bottom - pb-safe for mobile notch */}
-        <div className="px-4 pb-16 sm:pb-8 pointer-events-auto flex flex-col gap-2 safe-area-pb">
+        {/* Entity chips + Tiles at bottom */}
+        <div className="px-4 pb-6 pointer-events-auto flex flex-col gap-2">
+          {/* Semi-transparent backdrop for readability */}
+          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none -z-10" />
           {/* Entity chips - what the camera sees */}
           <EntityChips
             entities={state.detectedEntities}
@@ -552,6 +572,7 @@ export default function Home() {
         <LocationPicker
           currentContext={state.sessionLocation?.context || null}
           onSelect={handleLocationSelect}
+          onFindLocation={handleFindLocation}
           onClose={handleLocationPickerClose}
         />
       )}

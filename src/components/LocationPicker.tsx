@@ -5,6 +5,7 @@ import { ContextType } from '@/lib/tiles';
 interface LocationPickerProps {
   currentContext: ContextType | null;
   onSelect: (context: ContextType) => void;
+  onFindLocation: () => void;
   onClose: () => void;
 }
 
@@ -18,18 +19,31 @@ const LOCATION_OPTIONS: { context: ContextType; emoji: string; label: string }[]
   { context: 'medical_office', emoji: '🏥', label: 'Doctor' },
 ];
 
-export default function LocationPicker({ currentContext, onSelect, onClose }: LocationPickerProps) {
+export default function LocationPicker({ currentContext, onSelect, onFindLocation, onClose }: LocationPickerProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="bg-gray-900 rounded-2xl p-6 mx-4 max-w-sm w-full shadow-2xl">
         {/* Header */}
-        <div className="text-center mb-6">
+        <div className="text-center mb-4">
           <h2 className="text-white text-xl font-bold">Where are you?</h2>
-          <p className="text-white/60 text-sm mt-1">Tap to select your location</p>
         </div>
 
+        {/* Find my location button */}
+        <button
+          onClick={() => {
+            onFindLocation();
+            onClose();
+          }}
+          className="w-full flex items-center justify-center gap-2 p-3 mb-4 bg-blue-600 hover:bg-blue-500 rounded-xl transition-colors active:scale-95"
+        >
+          <span className="text-xl">📍</span>
+          <span className="text-white font-semibold">Find my location</span>
+        </button>
+
+        <p className="text-white/40 text-xs text-center mb-3">Or choose manually:</p>
+
         {/* Options grid */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-2">
           {LOCATION_OPTIONS.map(({ context, emoji, label }) => {
             const isSelected = context === currentContext;
             return (
@@ -38,7 +52,7 @@ export default function LocationPicker({ currentContext, onSelect, onClose }: Lo
                 onClick={() => onSelect(context)}
                 className={`
                   flex flex-col items-center justify-center
-                  p-4 rounded-xl
+                  p-3 rounded-xl
                   transition-all duration-200
                   active:scale-95
                   ${isSelected
@@ -47,8 +61,8 @@ export default function LocationPicker({ currentContext, onSelect, onClose }: Lo
                   }
                 `}
               >
-                <span className="text-3xl mb-1">{emoji}</span>
-                <span className="text-white font-medium text-sm">{label}</span>
+                <span className="text-2xl mb-0.5">{emoji}</span>
+                <span className="text-white font-medium text-xs">{label}</span>
               </button>
             );
           })}
@@ -57,7 +71,7 @@ export default function LocationPicker({ currentContext, onSelect, onClose }: Lo
         {/* Close button */}
         <button
           onClick={onClose}
-          className="w-full mt-4 py-3 text-white/60 text-sm hover:text-white transition-colors"
+          className="w-full mt-4 py-2 text-white/60 text-sm hover:text-white transition-colors"
         >
           Cancel
         </button>

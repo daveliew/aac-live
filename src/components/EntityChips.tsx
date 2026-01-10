@@ -72,28 +72,32 @@ export default function EntityChips({ entities, focusedEntity, onFocus }: Entity
   };
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-      <span className="text-white/60 text-xs whitespace-nowrap">I see:</span>
-      {entities.slice(0, 5).map((entity) => {
+    <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+      <span className="text-white/50 text-xs font-medium whitespace-nowrap px-2 py-1 bg-black/30 backdrop-blur-sm rounded-full">
+        I see:
+      </span>
+      {entities.slice(0, 4).map((entity) => {
         const isFocused = focusedEntity === entity;
         return (
           <button
             key={entity}
             onClick={() => handleChipClick(entity)}
             className={`
-              flex items-center gap-1
-              px-2 py-1
+              flex items-center gap-1.5
+              px-3 py-1.5
               rounded-full
-              text-xs
+              text-sm font-medium
               whitespace-nowrap
+              backdrop-blur-md
               transition-all duration-200
+              active:scale-95
               ${isFocused
-                ? 'bg-yellow-400 text-black ring-2 ring-yellow-300 shadow-lg'
-                : 'bg-white/20 text-white/90 hover:bg-white/30'
+                ? 'bg-yellow-400/90 text-black shadow-lg shadow-yellow-400/30'
+                : 'bg-white/15 text-white hover:bg-white/25 border border-white/10'
               }
             `}
           >
-            <span>{getEntityEmoji(entity)}</span>
+            <span className="text-base">{getEntityEmoji(entity)}</span>
             <span>{formatEntityLabel(entity)}</span>
           </button>
         );

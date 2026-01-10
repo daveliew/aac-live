@@ -398,16 +398,11 @@ function aacReducer(state: AACState, action: AACAction): AACState {
             };
         }
 
-        // Connection mode actions
+        // Connection mode actions (no notification - silent in hybrid mode)
         case 'SET_CONNECTION_MODE':
             return {
                 ...state,
-                connectionMode: action.payload,
-                notification: {
-                    type: 'context_changed',
-                    message: action.payload === 'live' ? 'Connected to Live API' : 'Switched to REST mode',
-                    timestamp: new Date()
-                }
+                connectionMode: action.payload
             };
 
         case 'LIVE_SESSION_START':
