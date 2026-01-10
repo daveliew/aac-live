@@ -1,12 +1,16 @@
 'use client';
 
 import { useRef, useEffect, useCallback, useState } from 'react';
+import { GeminiLiveClient } from '@/lib/gemini-live';
+import { ConnectionMode } from '@/hooks/useAACState';
 
 interface CameraProps {
   onCapture: (base64: string) => void;
+  mode?: ConnectionMode;
+  liveClient?: GeminiLiveClient | null;
 }
 
-export default function Camera({ onCapture }: CameraProps) {
+export default function Camera({ onCapture, mode = 'rest', liveClient }: CameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isReady, setIsReady] = useState(false);
@@ -57,8 +61,16 @@ export default function Camera({ onCapture }: CameraProps) {
 
     ctx.drawImage(video, 0, 0);
     const base64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
-    onCapture(base64);
-  }, [isReady, onCapture]);
+
+    // Send frame based on mode
+    if (mode === 'live' && liveClient?.isConnected()) {
+      // Live mode: send directly to WebSocket
+      liveClient.sendFrame(base64);
+    } else {
+      // REST mode: use callback (goes to /api/tiles)
+      onCapture(base64);
+    }
+  }, [isReady, onCapture, mode, liveClient]);
 
   // Auto-capture at 1 FPS
   useEffect(() => {
@@ -77,6 +89,10 @@ export default function Camera({ onCapture }: CameraProps) {
     );
   }
 
+  // Mode indicator colors
+  const modeColor = mode === 'live' ? 'bg-green-500' : 'bg-yellow-500';
+  const modeLabel = mode === 'live' ? 'Live' : 'REST';
+
   return (
     <div className="relative group overflow-hidden rounded-2xl shadow-2xl bg-black aspect-video flex items-center justify-center">
       <video
@@ -90,14 +106,14 @@ export default function Camera({ onCapture }: CameraProps) {
 
       {/* Overlay Glow */}
       <div className="absolute inset-0 pointer-events-none opacity-30">
-        <div className="absolute inset-0 bg-blue-500/20 blur-3xl animate-pulse" />
+        <div className={`absolute inset-0 ${mode === 'live' ? 'bg-green-500/20' : 'bg-blue-500/20'} blur-3xl animate-pulse`} />
       </div>
 
-      {/* Live indicator */}
+      {/* Mode indicator */}
       {isReady && (
         <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
-          <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
-          <span className="text-xs font-bold tracking-widest uppercase">Live</span>
+          <div className={`w-2.5 h-2.5 ${modeColor} rounded-full animate-pulse`} />
+          <span className="text-xs font-bold tracking-widest uppercase">{modeLabel}</span>
         </div>
       )}
 
