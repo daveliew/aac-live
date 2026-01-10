@@ -1,113 +1,68 @@
 'use client';
 
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Camera from '@/components/Camera';
 import TileGrid from '@/components/TileGrid';
-import AffirmationUI from '@/components/AffirmationUI';
 import ContextNotification from '@/components/ContextNotification';
-import { useAACState } from '@/hooks/useAACState';
-import { ContextType, formatContext } from '@/lib/tiles';
-import { GeminiLiveClient, GeminiLiveEvent } from '@/lib/gemini-live';
-import { getAudioPlayer } from '@/lib/audio-player';
-
-const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
+import { useAACState, APIResponse } from '@/hooks/useAACState';
+import { formatContext } from '@/lib/tiles';
 
 export default function Home() {
   const { state, dispatch, displayTiles, applyContextIfReady } = useAACState();
+  const [isConnected, setIsConnected] = useState(false);
+  const lastCaptureRef = useRef<number>(0);
 
-  // Live client state (always-on, connects on mount)
-  const [liveClient, setLiveClient] = useState<GeminiLiveClient | null>(null);
-  const [liveStatus, setLiveStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('connecting');
-  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
-  const audioTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Handle frame capture - calls server API
+  const handleCapture = useCallback(async (base64Image: string) => {
+    // Debounce: skip if last capture was < 800ms ago
+    const now = Date.now();
+    if (now - lastCaptureRef.current < 800) return;
+    lastCaptureRef.current = now;
 
-  // Handle events from GeminiLiveClient
-  const handleLiveEvent = useCallback((event: GeminiLiveEvent) => {
-    switch (event.type) {
-      case 'open':
-        setLiveStatus('connected');
-        break;
-      case 'tiles':
-        // Convert to DisplayTile format and mark as suggested
-        const liveTiles = event.tiles.map(t => ({
-          id: String(t.id),
-          text: t.text,
-          tts: t.text,
-          emoji: t.emoji,
-          isCore: false,
-          isSuggested: true
-        }));
-        dispatch({ type: 'LIVE_TILES', payload: liveTiles });
+    try {
+      const response = await fetch('/api/tiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64Image })
+      });
 
-        // Handle context from Live API (debounced)
-        if (event.context) {
-          dispatch({ type: 'DEBOUNCE_CONTEXT', payload: event.context });
-        }
-        break;
-      case 'audio':
-        // Play PCM audio via Web Audio API
-        setIsAudioPlaying(true);
-        // Reset audio indicator after audio chunk duration (~500ms buffer)
-        if (audioTimeoutRef.current) clearTimeout(audioTimeoutRef.current);
-        audioTimeoutRef.current = setTimeout(() => setIsAudioPlaying(false), 800);
+      if (!response.ok) throw new Error('API error');
 
-        getAudioPlayer().play(event.data).catch(err => {
-          console.warn('Audio playback error:', err);
+      const data: APIResponse = await response.json();
+      setIsConnected(true);
+
+      // Debounce context changes
+      dispatch({ type: 'DEBOUNCE_CONTEXT', payload: data.classification.primaryContext });
+
+      // Update tiles directly (always-on live mode)
+      if (data.tiles) {
+        dispatch({
+          type: 'LIVE_TILES',
+          payload: data.tiles.map(t => ({
+            id: t.id,
+            text: t.label,
+            tts: t.tts,
+            emoji: t.emoji,
+            isCore: false,
+            isSuggested: true,
+            relevanceScore: t.relevanceScore
+          }))
         });
-        break;
-      case 'error':
-        setLiveStatus('error');
-        console.error('Live error:', event.error);
-        // Load fallback tiles so child can still communicate
-        dispatch({ type: 'SET_FALLBACK_TILES' });
-        break;
-      case 'close':
-        setLiveStatus('idle');
-        break;
+      }
+    } catch (error) {
+      console.error('Error getting tiles:', error);
+      setIsConnected(false);
+      dispatch({ type: 'SET_FALLBACK_TILES' });
     }
   }, [dispatch]);
 
-  // Auto-connect on mount (always-on live mode)
-  useEffect(() => {
-    const client = new GeminiLiveClient({ apiKey: GEMINI_API_KEY }, handleLiveEvent);
-    client.connect();
-    setLiveClient(client);
-
-    return () => {
-      client.disconnect();
-      if (audioTimeoutRef.current) clearTimeout(audioTimeoutRef.current);
-      getAudioPlayer().stop();
-    };
-  }, [handleLiveEvent]);
-
-  // Connection timeout fallback - if stuck connecting, show fallback tiles
-  useEffect(() => {
-    if (liveStatus === 'connecting' && state.contextTiles.length === 0) {
-      const timeout = setTimeout(() => {
-        if (liveStatus === 'connecting') {
-          dispatch({ type: 'SET_FALLBACK_TILES' });
-        }
-      }, 10000); // 10 second timeout
-      return () => clearTimeout(timeout);
-    }
-  }, [liveStatus, state.contextTiles.length, dispatch]);
-
-  // Apply debounced context changes (always live mode)
+  // Apply debounced context changes
   useEffect(() => {
     if (state.context.transitionPending) {
       const timer = setTimeout(applyContextIfReady, 500);
       return () => clearTimeout(timer);
     }
   }, [state.context.transitionPending, applyContextIfReady]);
-
-  // Affirmation handlers
-  const handleAffirm = useCallback((context: ContextType) => {
-    dispatch({ type: 'AFFIRM_CONTEXT', payload: context });
-  }, [dispatch]);
-
-  const handleDismissAffirmation = useCallback(() => {
-    dispatch({ type: 'DISMISS_AFFIRMATION' });
-  }, [dispatch]);
 
   const handleClearNotification = useCallback(() => {
     dispatch({ type: 'CLEAR_NOTIFICATION' });
@@ -116,30 +71,14 @@ export default function Home() {
   // Context status message
   const contextStatus = state.context.current
     ? `Context: ${formatContext(state.context.current)}`
-    : liveStatus === 'connected'
+    : isConnected
       ? 'Scanning environment...'
-      : liveStatus === 'connecting'
-        ? 'Connecting...'
-        : 'Initializing...';
+      : 'Initializing...';
 
-  // Status indicator color
-  const statusColor = liveStatus === 'connected'
-    ? 'bg-green-500'
-    : liveStatus === 'error'
-      ? 'bg-red-500'
-      : 'bg-yellow-500 animate-pulse';
+  const statusColor = isConnected ? 'bg-green-500' : 'bg-yellow-500 animate-pulse';
 
   return (
     <main className="min-h-screen bg-[#050505] text-white selection:bg-blue-500/30 overflow-x-hidden">
-      {/* Affirmation Modal */}
-      {state.showAffirmationUI && state.context.affirmation && (
-        <AffirmationUI
-          affirmation={state.context.affirmation}
-          onConfirm={handleAffirm}
-          onDismiss={handleDismissAffirmation}
-        />
-      )}
-
       {/* Context Change Notification */}
       {state.notification && (
         <ContextNotification
@@ -162,7 +101,7 @@ export default function Home() {
               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${statusColor} opacity-75`}></span>
               <span className={`relative inline-flex rounded-full h-2 w-2 ${statusColor}`}></span>
             </span>
-            {liveStatus === 'connected' ? 'Live' : liveStatus === 'connecting' ? 'Connecting' : 'Offline'}
+            {isConnected ? 'Live' : 'Connecting'}
           </div>
           <h1 className="text-5xl md:text-6xl font-black tracking-tighter bg-gradient-to-b from-white to-white/60 bg-clip-text text-transparent">
             AAC <span className="text-blue-500">Live</span>
@@ -175,24 +114,12 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
           {/* Camera Column */}
           <div className="lg:col-span-5 space-y-4">
-            <Camera liveClient={liveClient} />
+            <Camera onCapture={handleCapture} />
 
             {/* Status Bar */}
-            <div className="flex items-center justify-between px-4 py-3 bg-white/5 rounded-2xl border border-white/5">
-              <div className="flex items-center gap-2 text-sm text-gray-400 font-medium">
-                <div className={`w-2 h-2 rounded-full ${statusColor}`} />
-                {contextStatus}
-              </div>
-              {isAudioPlaying && (
-                <div className="flex items-center gap-1.5 text-xs text-blue-400">
-                  <div className="flex gap-0.5">
-                    <div className="w-1 h-3 bg-blue-400 rounded-full animate-pulse" />
-                    <div className="w-1 h-4 bg-blue-400 rounded-full animate-pulse delay-75" />
-                    <div className="w-1 h-2 bg-blue-400 rounded-full animate-pulse delay-150" />
-                  </div>
-                  Speaking
-                </div>
-              )}
+            <div className="flex items-center gap-2 px-4 py-3 bg-white/5 rounded-2xl border border-white/5 text-sm text-gray-400 font-medium">
+              <div className={`w-2 h-2 rounded-full ${statusColor}`} />
+              {contextStatus}
             </div>
           </div>
 

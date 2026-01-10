@@ -1,17 +1,12 @@
 'use client';
 
 import { useRef, useEffect, useCallback, useState } from 'react';
-import { GeminiLiveClient } from '@/lib/gemini-live';
 
 interface CameraProps {
-  isLive?: boolean;
-  liveClient?: GeminiLiveClient | null;
+  onCapture: (base64: string) => void;
 }
 
-export default function Camera({
-  isLive = true,
-  liveClient = null
-}: CameraProps) {
+export default function Camera({ onCapture }: CameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isReady, setIsReady] = useState(false);
@@ -48,9 +43,8 @@ export default function Camera({
     };
   }, []);
 
-  // Stream frames to Gemini Live
-  const streamFrame = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current || !isReady || !liveClient) return;
+  const captureFrame = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current || !isReady) return;
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -63,16 +57,17 @@ export default function Camera({
 
     ctx.drawImage(video, 0, 0);
     const base64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
-    liveClient.sendMediaChunk(base64);
-  }, [isReady, liveClient]);
+    onCapture(base64);
+  }, [isReady, onCapture]);
 
-  // Stream at 1 FPS when live and connected
+  // Auto-capture at 1 FPS
   useEffect(() => {
-    if (!isLive || !isReady || !liveClient) return;
+    if (!isReady) return;
 
-    const interval = setInterval(streamFrame, 1000);
+    captureFrame(); // Capture immediately
+    const interval = setInterval(captureFrame, 1000);
     return () => clearInterval(interval);
-  }, [isLive, isReady, liveClient, streamFrame]);
+  }, [isReady, captureFrame]);
 
   if (error) {
     return (
@@ -93,7 +88,7 @@ export default function Camera({
       />
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Overlay Glow (always on in live mode) */}
+      {/* Overlay Glow */}
       <div className="absolute inset-0 pointer-events-none opacity-30">
         <div className="absolute inset-0 bg-blue-500/20 blur-3xl animate-pulse" />
       </div>
