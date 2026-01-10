@@ -1,6 +1,7 @@
-# AAC Live
+# Glimpse
+> **Communication at the speed of sight.**
 
-Context-aware Augmentative and Alternative Communication (AAC) app for non-verbal children, powered by Gemini vision AI.
+Glimpse is a context-aware Augmentative and Alternative Communication (AAC) app for non-verbal children, powered by Gemini 3. It bridges the gap between sight and voice by automatically surfacing relevant communication tiles based on the child's environment.
 
 ## What it does
 

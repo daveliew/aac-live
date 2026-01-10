@@ -9,14 +9,16 @@
 
 ### Just Completed
 - **Glimpse Branding**: Identity locked ("Communication at the speed of sight")
+- **Visual Assets**: Logo, App Icon, Hero, and Mockup generated via Nano Banana Pro
+- **Professional Validation**: Aligned with Vicki Clarke’s AAC principles (Autonomous Communication)
 - **Presentation Outline**: Card-by-card pitch structure finalized for Gamma
 - **AAC Affirmation System**: Full implementation with Gemini 3 Flash
 - **Deployment**: Docker + Cloud Run ready
 
 ### Next Task
-- [ ] **Asset Generation**: Generate Logo, App Icon, and Hero Image using provided prompts
-- [ ] **Scripting**: Write full spoken script for Gamma deck cards (3-min pitch)
-- [ ] **Rebranding**: Update repo (README, package.json, CLAUDE.md) to "Glimpse"
+- [x] **Asset Generation**: Logo, Icon, and Hero Image generated
+- [ ] **Rebranding**: Update repo (README, package.json, CLAUDE.md, page.tsx) to "Glimpse"
+- [ ] **Script Refinement**: Finalize spoken script with "Autonomous Communication" nuance
 - [ ] **Demo Prep**: Verify "McDonald's" demo path logic in `tiles.ts`
 - [ ] Test end-to-end: Snapshot mode with affirmation flow
 - [ ] Test end-to-end: Live mode with debounced context updates
