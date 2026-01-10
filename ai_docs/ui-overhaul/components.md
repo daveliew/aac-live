@@ -181,10 +181,10 @@ export default function Home() {
 
 ## Migration Checklist
 
-- [ ] Create `src/lib/tile-colors.ts`
-- [ ] Update `Tile.tsx` with color prop
-- [ ] Update `TileGrid.tsx` to pass colors
-- [ ] Add `fullscreen` prop to Camera
-- [ ] Restructure page.tsx layout
-- [ ] Remove unused header/footer components
-- [ ] Test on mobile viewport
+- [x] Create `src/lib/tile-colors.ts`
+- [x] Update `Tile.tsx` with color prop
+- [x] Update `TileGrid.tsx` to pass colors
+- [x] Add `fullscreen` prop to Camera
+- [x] Restructure page.tsx layout
+- [x] Remove unused header/footer components
+- [x] Test on mobile viewport

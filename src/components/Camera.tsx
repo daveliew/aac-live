@@ -8,9 +8,10 @@ interface CameraProps {
   onCapture: (base64: string) => void;
   mode?: ConnectionMode;
   liveClient?: GeminiLiveClient | null;
+  fullscreen?: boolean;
 }
 
-export default function Camera({ onCapture, mode = 'rest', liveClient }: CameraProps) {
+export default function Camera({ onCapture, mode = 'rest', liveClient, fullscreen = false }: CameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isReady, setIsReady] = useState(false);
@@ -64,10 +65,8 @@ export default function Camera({ onCapture, mode = 'rest', liveClient }: CameraP
 
     // Send frame based on mode
     if (mode === 'live' && liveClient?.isConnected()) {
-      // Live mode: send directly to WebSocket
       liveClient.sendFrame(base64);
     } else {
-      // REST mode: use callback (goes to /api/tiles)
       onCapture(base64);
     }
   }, [isReady, onCapture, mode, liveClient]);
@@ -76,25 +75,27 @@ export default function Camera({ onCapture, mode = 'rest', liveClient }: CameraP
   useEffect(() => {
     if (!isReady) return;
 
-    captureFrame(); // Capture immediately
+    captureFrame();
     const interval = setInterval(captureFrame, 1000);
     return () => clearInterval(interval);
   }, [isReady, captureFrame]);
 
+  // Fullscreen mode: fixed position, fills viewport
+  // Contained mode: rounded box with aspect ratio
+  const containerClass = fullscreen
+    ? 'fixed inset-0 z-0'
+    : 'relative rounded-2xl overflow-hidden shadow-2xl bg-black aspect-video';
+
   if (error) {
     return (
-      <div className="flex items-center justify-center h-64 bg-gray-800 rounded-2xl border-2 border-dashed border-gray-700">
+      <div className={`${containerClass} flex items-center justify-center bg-gray-900`}>
         <p className="text-red-400 text-center px-4 font-medium">{error}</p>
       </div>
     );
   }
 
-  // Mode indicator colors
-  const modeColor = mode === 'live' ? 'bg-green-500' : 'bg-yellow-500';
-  const modeLabel = mode === 'live' ? 'Live' : 'REST';
-
   return (
-    <div className="relative group overflow-hidden rounded-2xl shadow-2xl bg-black aspect-video flex items-center justify-center">
+    <div className={containerClass}>
       <video
         ref={videoRef}
         autoPlay
@@ -104,23 +105,10 @@ export default function Camera({ onCapture, mode = 'rest', liveClient }: CameraP
       />
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Overlay Glow */}
-      <div className="absolute inset-0 pointer-events-none opacity-30">
-        <div className={`absolute inset-0 ${mode === 'live' ? 'bg-green-500/20' : 'bg-blue-500/20'} blur-3xl animate-pulse`} />
-      </div>
-
-      {/* Mode indicator */}
-      {isReady && (
-        <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
-          <div className={`w-2.5 h-2.5 ${modeColor} rounded-full animate-pulse`} />
-          <span className="text-xs font-bold tracking-widest uppercase">{modeLabel}</span>
-        </div>
-      )}
-
       {!isReady && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 gap-4">
           <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
-          <div className="text-blue-400 font-medium tracking-wide animate-pulse">Initializing Camera...</div>
+          <div className="text-white/60 font-medium">Initializing Camera...</div>
         </div>
       )}
     </div>

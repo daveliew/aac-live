@@ -18,22 +18,22 @@ Transform AAC Live from a split-layout app to an immersive, camera-first experie
 
 ### Phase 1: Design Tokens
 - [x] Document color palette
-- [ ] Add to Tailwind config or constants
+- [x] Add to Tailwind config or constants (`src/lib/tile-colors.ts`)
 
 ### Phase 2: Tile Component
-- [ ] Add `color` prop to Tile
-- [ ] Restyle: solid bg, shadow, rounded
-- [ ] Remove glassmorphism effects
+- [x] Add `color` prop to Tile
+- [x] Restyle: solid bg, shadow, rounded
+- [x] Remove glassmorphism effects
 
 ### Phase 3: Layout
-- [ ] Camera fills viewport
-- [ ] Tiles overlay at bottom
-- [ ] Minimal header
+- [x] Camera fills viewport
+- [x] Tiles overlay at bottom
+- [x] Minimal header
 
 ### Phase 4: Polish
-- [ ] Animations/transitions
-- [ ] Mobile-first responsive
-- [ ] Error states
+- [x] Animations/transitions (active:scale-95)
+- [x] Mobile-first responsive
+- [x] Error states
 
 ## Files
 
