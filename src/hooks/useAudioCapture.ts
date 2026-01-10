@@ -120,9 +120,13 @@ export function useAudioCapture({
         audioBufferRef.current.push(new Float32Array(inputData));
       };
 
-      // Connect: source -> processor -> destination (required for processor to work)
+      // Connect: source -> processor -> silent gain (NOT destination, to avoid feedback!)
+      // ScriptProcessorNode needs to be connected to something to work
+      const silentGain = audioContext.createGain();
+      silentGain.gain.value = 0; // Mute - we don't want to hear mic input
       source.connect(processor);
-      processor.connect(audioContext.destination);
+      processor.connect(silentGain);
+      silentGain.connect(audioContext.destination);
 
       // Start interval to flush audio buffer
       intervalRef.current = setInterval(flushAudioBuffer, chunkIntervalMs);
