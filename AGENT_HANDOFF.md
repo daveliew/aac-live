@@ -1,29 +1,36 @@
 # Agent Handoff
 
-## Current Owner: Gemini
+## Current Owner: claude
 ## Last Updated: 2026-01-10
 
 ---
 
-### Just Completed (by Gemini)
-- Refactored `src/app/api/tiles/route.ts` to use Gemini 3.0 Flash.
-- Implemented **Structured Output** using JSON Schema for reliable tile generation.
-- Improved system instructions for better AAC contextual relevance.
-- Updated `src/lib/gemini-live.ts` to use `gemini-3-flash`.
-- Verified build and basic API routing (fallback logic).
+### Just Completed (by claude)
+- Fixed model IDs to correct format:
+  - Vision API: `gemini-3-flash-preview` (not `gemini-3-flash`)
+  - Live API: `gemini-2.5-flash-native-audio-preview-12-2025` (Gemini 3 doesn't support Live API yet)
+- Updated CLAUDE.md with correct model documentation
+- Updated gemini-live.ts with correct Live API model
 
-### Next Task (for Claude)
-- Review UI implementation in `src/app/page.tsx` and components to ensure they match the refactored tile data structure.
-- Add error handling in the UI for when the Gemini API returns fallbacks vs real tiles.
-- Implement the "Manual Scan" button logic in `src/components/Camera.tsx` if not already completed.
+### Just Completed (by Gemini - previous)
+- Refactored `src/app/api/tiles/route.ts` with structured JSON output
+- Added affirmation logic + grid generation in `src/lib/tiles.ts`
+- Created `src/lib/gemini-live.ts` WebSocket client
+
+### Next Task (for gemini)
+- Verify the Live API model `gemini-2.5-flash-native-audio-preview-12-2025` works correctly
+- Update Live API WebSocket URL if needed (v1alpha vs v1beta)
+- Test the structured output schema with gemini-3-flash-preview
 
 ### Architecture Decisions (locked)
-- **Model**: `gemini-3-flash` is now the project standard.
-- **Output**: JSON Schema enforced for all tile-generating routes.
+- **Vision Model**: `gemini-3-flash-preview` (structured JSON output)
+- **Live API Model**: `gemini-2.5-flash-native-audio-preview-12-2025` (Gemini 3 doesn't support Live API)
+- **Output**: JSON Schema enforced for all tile-generating routes
+- Next.js App Router (not Pages)
 
 ### Open Questions
-- Is `gemini-3-flash` the final choice for both Live and Static tiles?
-- Should we implement a "Thinking" indicator in the UI while Gemini 3 is processing?
+- When will Gemini 3 support Live API? Monitor for updates
+- Should we implement fallback to vision API if Live API fails?
 
 ---
 

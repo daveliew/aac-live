@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
-import { affirmContext, generateGrid, ContextType } from '@/lib/tiles';
+import { affirmContext, generateGrid, ContextType, GridTile } from '@/lib/tiles';
 
 // Define the schema for Context Classification
 const responseSchema = {
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash',
+      model: 'gemini-3-flash-preview',
       config: {
         responseMimeType: 'application/json',
         responseSchema: responseSchema,
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     // Apply Affirmation Logic
     const affirmation = affirmContext(classification);
 
-    let tiles = [];
+    let tiles: GridTile[] = [];
     if (affirmation.affirmed && affirmation.finalContext) {
       // Auto-generate grid if affirmed
       const grid = generateGrid({

@@ -23,7 +23,7 @@ export class GeminiLiveClient {
 
     constructor(config: GeminiLiveConfig, onEvent: (event: GeminiLiveEvent) => void) {
         this.apiKey = config.apiKey;
-        this.model = config.model || 'gemini-3-flash-preview'; // Use Gemini 3 for Live API
+        this.model = config.model || 'gemini-2.5-flash-native-audio-preview-12-2025'; // Gemini 3 doesn't support Live API yet
         this.onEvent = onEvent;
     }
 
