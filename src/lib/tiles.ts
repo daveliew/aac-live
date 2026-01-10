@@ -123,13 +123,14 @@ export const TILE_SETS: Record<ContextType, TileDefinition[]> = {
     home_living: [],
     store_checkout: [],
     medical_office: [],
-    // Universal fallback tiles for offline/unknown contexts
+    // Feelings mode - activated when selfie/face detected or context unknown
+    // "How are you feeling?" tiles for self-expression
     unknown: [
-        { id: 'unk_1', label: 'I want that', tts: 'I want that please', emoji: '👉', priority: 10 },
-        { id: 'unk_2', label: 'Hungry', tts: 'I am hungry', emoji: '🍽️', priority: 9 },
-        { id: 'unk_3', label: 'Thirsty', tts: 'I am thirsty', emoji: '🥤', priority: 9 },
-        { id: 'unk_4', label: 'Bathroom', tts: 'I need to go to the bathroom', emoji: '🚻', priority: 8 },
-        { id: 'unk_5', label: 'Not feeling well', tts: 'I am not feeling well', emoji: '🤒', priority: 8 },
+        { id: 'feel_1', label: 'Happy', tts: 'I am feeling happy', emoji: '😊', priority: 10 },
+        { id: 'feel_2', label: 'Sad', tts: 'I am feeling sad', emoji: '😢', priority: 10 },
+        { id: 'feel_3', label: 'Tired', tts: 'I am feeling tired', emoji: '😴', priority: 9 },
+        { id: 'feel_4', label: 'Hungry', tts: 'I am hungry', emoji: '🍽️', priority: 9 },
+        { id: 'feel_5', label: 'Hurt', tts: 'Something hurts', emoji: '🤕', priority: 10 },
     ]
 };
 
