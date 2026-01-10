@@ -42,16 +42,21 @@ Generate a JSON object following the schema.`;
 
 export async function POST(request: NextRequest) {
   try {
-    const { image, location } = await request.json();
+    const { image, location, placeName } = await request.json();
 
     if (!image) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 });
     }
 
     // Build location context if available
-    const locationContext = location
-      ? `\n\nGeolocation hint: User is at coordinates (${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}). Use this to help determine if they might be indoors/outdoors.`
-      : '';
+    let locationContext = '';
+    if (placeName) {
+      // Place name from GPS is most useful context
+      locationContext = `\n\nLocation Context: The child is currently at or near "${placeName}". Use this to inform your context classification.`;
+    } else if (location) {
+      // Fallback to coordinates
+      locationContext = `\n\nGeolocation hint: User is at coordinates (${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}). Use this to help determine if they might be indoors/outdoors.`;
+    }
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {

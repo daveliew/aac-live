@@ -49,7 +49,7 @@ const DEFAULT_MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
 const SESSION_LIMIT_MS = 2 * 60 * 1000; // 2 minutes for audio+video
 const RECONNECT_BUFFER_MS = 10 * 1000; // Reconnect 10s before expiry
 
-const DEFAULT_SYSTEM_PROMPT = `You are an AAC assistant for a non-verbal child.
+const BASE_SYSTEM_PROMPT = `You are an AAC assistant for a non-verbal child.
 Analyze the video stream and generate communication tiles.
 
 For each frame, respond with a JSON object:
@@ -73,6 +73,19 @@ Guidelines:
 - Keep tile labels short (1-3 words)
 - Include contextually relevant actions
 - Score relevance 0-100 based on visual context`;
+
+/**
+ * Build system prompt with optional location context
+ * @param placeName - Name of nearby place from GPS (e.g., "McDonald's")
+ */
+export function buildSystemPrompt(placeName?: string): string {
+  if (!placeName) return BASE_SYSTEM_PROMPT;
+
+  const locationContext = `\n\nLocation Context:\nThe child is currently at or near "${placeName}". Use this to inform your context classification and tile suggestions.`;
+  return BASE_SYSTEM_PROMPT + locationContext;
+}
+
+const DEFAULT_SYSTEM_PROMPT = BASE_SYSTEM_PROMPT;
 
 export class GeminiLiveClient {
   private ws: WebSocket | null = null;

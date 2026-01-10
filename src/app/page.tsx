@@ -26,7 +26,7 @@ export default function Home() {
   const [liveClient, setLiveClient] = useState<GeminiLiveClient | null>(null);
 
   // DEMO MODE: Force REST API for reliability (Live API disabled)
-  const FORCE_REST_MODE = true;
+  const FORCE_REST_MODE = false;
 
   // Initialize Live API on mount - NEXT_PUBLIC_ mapped from GEMINI_API_KEY via next.config.ts
   useEffect(() => {
@@ -191,7 +191,11 @@ export default function Home() {
       const response = await fetch('/api/tiles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64Image, location })
+        body: JSON.stringify({
+          image: base64Image,
+          location,
+          placeName: nearestPlace?.name // Include place context for LLM prompt
+        })
       });
 
       if (!response.ok) throw new Error('API error');
@@ -229,7 +233,7 @@ export default function Home() {
       // Silent fallback - no error shown to children
       dispatch({ type: 'SET_FALLBACK_TILES' });
     }
-  }, [dispatch, location, state.connectionMode, state.contextLocked, liveClient]);
+  }, [dispatch, location, state.connectionMode, state.contextLocked, liveClient, nearestPlace]);
 
   // Apply debounced context changes
   useEffect(() => {

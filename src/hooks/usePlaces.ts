@@ -81,29 +81,24 @@ export function usePlaces(location: { lat: number; lng: number } | null) {
         error: null,
         lastFetchedAt: new Date(),
       });
-    } catch (err) {
-      console.error('Places API error:', err);
+    } catch {
+      // Silent fail - Places API is optional enhancement
+      // App works fine without it, just shows generic context names
       setState(prev => ({
         ...prev,
         isLoading: false,
-        error: err instanceof Error ? err.message : 'Unknown error',
+        error: 'Places unavailable',
+        lastFetchedAt: new Date(), // Prevent retry spam
       }));
     }
   }, []);
 
-  // Fetch places when location changes
+  // Fetch places ONCE when location first becomes available
+  // User is stationary during app usage, no need to refetch
   useEffect(() => {
-    if (!location) return;
-
-    // Only fetch if we haven't fetched in the last 30 seconds
-    const now = Date.now();
-    const lastFetch = state.lastFetchedAt?.getTime() || 0;
-    if (now - lastFetch < 30000 && state.places.length > 0) {
-      return;
-    }
-
+    if (!location || state.lastFetchedAt) return; // Only fetch once
     fetchPlaces(location.lat, location.lng);
-  }, [location, fetchPlaces, state.lastFetchedAt, state.places.length]);
+  }, [location, fetchPlaces, state.lastFetchedAt]);
 
   // Get the context type from nearest place
   const getContextFromPlace = useCallback((): string | null => {
