@@ -31,11 +31,28 @@ interface ContextState {
     transitionPending: boolean;
 }
 
-// Full app state (always live mode)
+// Connection mode
+export type ConnectionMode = 'live' | 'rest';
+
+// Full app state
 export interface AACState {
     isLoading: boolean;
 
+    // Connection state
+    connectionMode: ConnectionMode;
+    liveSessionActive: boolean;
+
     context: ContextState;
+
+    // Context locking
+    contextLocked: boolean;
+    lockedContext: ContextType | null;
+    lockedAt: Date | null;
+
+    // Background detection (while locked)
+    backgroundContext: ContextType | null;
+    backgroundConfidence: number;
+    majorShiftDetected: boolean;
 
     coreTiles: DisplayTile[];
     contextTiles: DisplayTile[];
@@ -64,11 +81,28 @@ export type AACAction =
     | { type: 'APPLY_PENDING_CONTEXT' }
     | { type: 'DISMISS_AFFIRMATION' }
     | { type: 'CLEAR_NOTIFICATION' }
-    | { type: 'SET_FALLBACK_TILES' };
+    | { type: 'SET_FALLBACK_TILES' }
+    // Connection mode actions
+    | { type: 'SET_CONNECTION_MODE'; payload: ConnectionMode }
+    | { type: 'LIVE_SESSION_START' }
+    | { type: 'LIVE_SESSION_END' }
+    // Context locking actions
+    | { type: 'LOCK_CONTEXT'; payload: ContextType }
+    | { type: 'UNLOCK_CONTEXT' }
+    | { type: 'BACKGROUND_UPDATE'; payload: { context: ContextType; confidence: number } }
+    | { type: 'MAJOR_SHIFT_ALERT'; payload: ContextType }
+    | { type: 'DISMISS_SHIFT_ALERT' };
 
-// Initial state (always live mode)
+// Major shift threshold
+const MAJOR_SHIFT_CONFIDENCE = 0.8;
+
+// Initial state
 const INITIAL_STATE: AACState = {
     isLoading: false,
+
+    // Connection - start with live, fallback to rest
+    connectionMode: 'live',
+    liveSessionActive: false,
 
     context: {
         current: null,
@@ -78,6 +112,16 @@ const INITIAL_STATE: AACState = {
         confirmedAt: null,
         transitionPending: false
     },
+
+    // Context locking - starts unlocked
+    contextLocked: false,
+    lockedContext: null,
+    lockedAt: null,
+
+    // Background detection
+    backgroundContext: null,
+    backgroundConfidence: 0,
+    majorShiftDetected: false,
 
     coreTiles: getCoreTiles(),
     contextTiles: [],
@@ -246,6 +290,10 @@ function aacReducer(state: AACState, action: AACAction): AACState {
         }
 
         case 'LIVE_TILES': {
+            // If context is locked, don't update tiles
+            if (state.contextLocked) {
+                return state;
+            }
             // In live mode, update context tiles
             return {
                 ...state,
@@ -286,6 +334,115 @@ function aacReducer(state: AACState, action: AACAction): AACState {
                 }
             };
         }
+
+        // Connection mode actions
+        case 'SET_CONNECTION_MODE':
+            return {
+                ...state,
+                connectionMode: action.payload,
+                notification: {
+                    type: 'context_changed',
+                    message: action.payload === 'live' ? 'Connected to Live API' : 'Switched to REST mode',
+                    timestamp: new Date()
+                }
+            };
+
+        case 'LIVE_SESSION_START':
+            return {
+                ...state,
+                liveSessionActive: true,
+                connectionMode: 'live'
+            };
+
+        case 'LIVE_SESSION_END':
+            return {
+                ...state,
+                liveSessionActive: false
+            };
+
+        // Context locking actions
+        case 'LOCK_CONTEXT': {
+            const contextToLock = action.payload;
+
+            // Generate tiles for locked context
+            const grid = generateGrid({
+                affirmedContext: contextToLock,
+                gridSize: 9
+            });
+
+            const lockedTiles = grid.tiles
+                .filter(t => !t.alwaysShow)
+                .map(gridTileToDisplayTile);
+
+            return {
+                ...state,
+                contextLocked: true,
+                lockedContext: contextToLock,
+                lockedAt: new Date(),
+                context: {
+                    ...state.context,
+                    current: contextToLock,
+                    confirmedAt: new Date()
+                },
+                contextTiles: lockedTiles,
+                showAffirmationUI: false,
+                majorShiftDetected: false,
+                notification: {
+                    type: 'context_confirmed',
+                    message: `Locked: ${formatContext(contextToLock)}`,
+                    toContext: contextToLock,
+                    timestamp: new Date()
+                }
+            };
+        }
+
+        case 'UNLOCK_CONTEXT':
+            return {
+                ...state,
+                contextLocked: false,
+                lockedContext: null,
+                lockedAt: null,
+                backgroundContext: null,
+                backgroundConfidence: 0,
+                majorShiftDetected: false,
+                notification: {
+                    type: 'context_changed',
+                    message: 'Context unlocked - scanning...',
+                    timestamp: new Date()
+                }
+            };
+
+        case 'BACKGROUND_UPDATE': {
+            const { context, confidence } = action.payload;
+
+            // If not locked, ignore background updates
+            if (!state.contextLocked) {
+                return state;
+            }
+
+            // Check for major shift
+            const isMajorShift = context !== state.lockedContext && confidence >= MAJOR_SHIFT_CONFIDENCE;
+
+            return {
+                ...state,
+                backgroundContext: context,
+                backgroundConfidence: confidence,
+                majorShiftDetected: isMajorShift
+            };
+        }
+
+        case 'MAJOR_SHIFT_ALERT':
+            return {
+                ...state,
+                majorShiftDetected: true,
+                backgroundContext: action.payload
+            };
+
+        case 'DISMISS_SHIFT_ALERT':
+            return {
+                ...state,
+                majorShiftDetected: false
+            };
 
         default:
             return state;
