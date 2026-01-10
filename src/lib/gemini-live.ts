@@ -136,8 +136,7 @@ export class GeminiLiveClient {
     try {
       const endpoint = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${this.config.apiKey}`;
 
-      console.log('[GeminiLive] Connecting to:', endpoint.replace(/key=.*/, 'key=***'));
-      console.log('[GeminiLive] API key length:', this.config.apiKey?.length || 0);
+      // Debug: console.log('[GeminiLive] Connecting...');
 
       this.ws = new WebSocket(endpoint);
       this.ws.binaryType = 'arraybuffer';
@@ -188,7 +187,6 @@ export class GeminiLiveClient {
       }
     };
 
-    console.log('[GeminiLive] Sending setup:', JSON.stringify(setupMessage, null, 2));
     this.ws.send(JSON.stringify(setupMessage));
   }
 
@@ -213,14 +211,12 @@ export class GeminiLiveClient {
   private handleMessage(event: MessageEvent): void {
     // Handle binary audio data
     if (event.data instanceof ArrayBuffer) {
-      console.log('[GeminiLive] Received audio data:', event.data.byteLength, 'bytes');
       this.audioQueue.push(event.data);
       this.config.onAudio?.(event.data);
       return;
     }
 
     // Handle JSON text responses
-    console.log('[GeminiLive] Received message:', event.data.substring(0, 500));
     try {
       const response = JSON.parse(event.data);
 
@@ -264,8 +260,6 @@ export class GeminiLiveClient {
 
   sendFrame(base64Image: string): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-
-    console.log('[GeminiLive] Sending frame:', base64Image.length, 'bytes');
 
     const message = {
       realtime_input: {

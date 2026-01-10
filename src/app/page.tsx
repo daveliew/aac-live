@@ -86,7 +86,6 @@ export default function Home() {
             dispatch({ type: 'LIVE_SESSION_START' });
           },
           onContext: (context: ContextClassification) => {
-            console.log('Live context:', context);
 
             // Set session location when first high-confidence context detected
             if (!sessionLocationRef.current && context.confidenceScore >= 0.6) {
@@ -122,7 +121,6 @@ export default function Home() {
             });
           },
           onTiles: (tiles: LiveTile[]) => {
-            console.log('Live tiles:', tiles);
             dispatch({
               type: 'LIVE_TILES',
               payload: tiles.map(t => ({
