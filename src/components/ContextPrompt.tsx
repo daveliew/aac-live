@@ -29,6 +29,7 @@ interface ContextOption {
 interface ContextPromptProps {
   mode: 'binary' | 'multi_choice';
   primaryContext?: ContextType;
+  placeName?: string;  // Specific place name from GPS (e.g., "McDonald's")
   prompt: string;
   options: ContextOption[];
   onConfirm: (context: ContextType) => void;
@@ -39,12 +40,15 @@ interface ContextPromptProps {
 export default function ContextPrompt({
   mode,
   primaryContext,
+  placeName,
   prompt,
   options,
   onConfirm,
   onDismiss,
   onShowAlternatives,
 }: ContextPromptProps) {
+  // Use place name if available, otherwise fall back to formatted context
+  const displayName = placeName || (primaryContext ? formatContext(primaryContext) : 'Here');
   const handleOptionClick = (option: ContextOption) => {
     if (option.action === 'show_alternatives' && onShowAlternatives) {
       onShowAlternatives();
@@ -65,9 +69,9 @@ export default function ContextPrompt({
             {getContextEmoji(primaryContext)}
           </div>
 
-          {/* Context name as question */}
+          {/* Place name or context as question - e.g., "McDonald's?" */}
           <h2 className="text-2xl font-bold text-white text-center mb-8">
-            {formatContext(primaryContext)}?
+            {displayName}?
           </h2>
 
           {/* Yes/No buttons */}
