@@ -23,7 +23,7 @@ Open [http://localhost:3000](http://localhost:3000) on a device with a camera.
 
 - Next.js 16 (App Router)
 - React 19
-- Gemini 2.5 Flash (vision AI)
+- Gemini 3 Flash (vision AI)
 - Web Speech API (text-to-speech)
 - Tailwind CSS 4
 
