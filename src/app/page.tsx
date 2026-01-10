@@ -17,6 +17,7 @@ export default function Home() {
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [lastSpoken, setLastSpoken] = useState<string | null>(null);
   const [showMultiChoice, setShowMultiChoice] = useState(false);
+  const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
   const lastCaptureRef = useRef<number>(0);
 
   // Places API for location names (e.g., "McDonald's")
@@ -391,6 +392,8 @@ export default function Home() {
         onCapture={handleCapture}
         mode={state.connectionMode}
         liveClient={liveClient}
+        facingMode={cameraFacing}
+        onFlip={() => setCameraFacing(prev => prev === 'environment' ? 'user' : 'environment')}
         fullscreen
       />
 

@@ -9,9 +9,11 @@ interface CameraProps {
   mode?: ConnectionMode;
   liveClient?: GeminiLiveClient | null;
   fullscreen?: boolean;
+  facingMode?: 'environment' | 'user';
+  onFlip?: () => void;
 }
 
-export default function Camera({ onCapture, mode = 'rest', liveClient, fullscreen = false }: CameraProps) {
+export default function Camera({ onCapture, mode = 'rest', liveClient, fullscreen = false, facingMode = 'environment', onFlip }: CameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isReady, setIsReady] = useState(false);
@@ -19,34 +21,44 @@ export default function Camera({ onCapture, mode = 'rest', liveClient, fullscree
 
   useEffect(() => {
     let stream: MediaStream | null = null;
+    let isCancelled = false;
 
     async function startCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: 640, height: 480 },
+          video: { facingMode, width: 640, height: 480 },
           audio: false
         });
+
+        if (isCancelled) {
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.onloadedmetadata = () => {
-            setIsReady(true);
+            if (!isCancelled) setIsReady(true);
           };
         }
       } catch (err) {
-        setError('Camera access denied. Please allow permissions.');
-        console.error('Camera error:', err);
+        if (!isCancelled) {
+          setError('Camera access denied. Please allow permissions.');
+          console.error('Camera error:', err);
+        }
       }
     }
 
     startCamera();
 
     return () => {
+      isCancelled = true;
+      setIsReady(false);
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, []);
+  }, [facingMode]); // Restart camera when facingMode changes
 
   const captureFrame = useCallback(() => {
     if (!videoRef.current || !canvasRef.current || !isReady) return;
@@ -101,9 +113,20 @@ export default function Camera({ onCapture, mode = 'rest', liveClient, fullscree
         autoPlay
         playsInline
         muted
-        className={`w-full h-full object-cover transition-opacity duration-700 ${isReady ? 'opacity-100' : 'opacity-0'}`}
+        className={`w-full h-full object-cover transition-opacity duration-700 ${isReady ? 'opacity-100' : 'opacity-0'} ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
       />
       <canvas ref={canvasRef} className="hidden" />
+
+      {/* Camera flip button */}
+      {onFlip && (
+        <button
+          onClick={onFlip}
+          className="absolute top-4 right-4 z-20 w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white text-2xl active:scale-95 transition-transform"
+          aria-label="Flip camera"
+        >
+          🔄
+        </button>
+      )}
 
       {!isReady && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 gap-4">
