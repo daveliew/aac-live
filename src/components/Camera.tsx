@@ -84,12 +84,12 @@ export default function Camera({ onCapture, mode = 'rest', liveClient, fullscree
     }
   }, [isReady, onCapture, mode, liveClient]);
 
-  // Auto-capture at 1 FPS
+  // Auto-capture at 2 FPS (faster response for REST mode)
   useEffect(() => {
     if (!isReady) return;
 
     captureFrame();
-    const interval = setInterval(captureFrame, 1000);
+    const interval = setInterval(captureFrame, 500);
     return () => clearInterval(interval);
   }, [isReady, captureFrame]);
 

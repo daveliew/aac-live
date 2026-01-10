@@ -20,6 +20,7 @@ export default function Home() {
   const [lastSpoken, setLastSpoken] = useState<string | null>(null);
   const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
   const lastCaptureRef = useRef<number>(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Places API for location names (e.g., "McDonald's")
   const { nearestPlace, refetch: refetchPlaces, refetchWithCoords } = usePlaces(location);
@@ -45,15 +46,15 @@ export default function Home() {
     }
   }, []);
 
-  // Audio capture - auto-starts when Live session is active
+  // Audio capture - disabled (was causing Live API 1007 errors)
   useAudioCapture({
     onAudioChunk: handleAudioChunk,
-    enabled: state.liveSessionActive
+    enabled: false
   });
 
-  // REST-only mode: REST for tiles, dedicated TTS API for speech
-  // Live API disabled due to connection issues and latency
-  const USE_LIVE_API = false;
+  // Live API toggle - can be switched during demo
+  // Default: true (try Live API first, fallback to REST on error)
+  const [useLiveAPI, setUseLiveAPI] = useState(true);
 
   // Initialize mode on mount
   useEffect(() => {
@@ -61,8 +62,8 @@ export default function Home() {
       // Use REST mode for everything - more reliable
       dispatch({ type: 'SET_CONNECTION_MODE', payload: 'rest' });
 
-      if (!USE_LIVE_API) {
-        console.log('REST-only mode: Using REST for tiles + dedicated TTS API for speech');
+      if (!useLiveAPI) {
+        console.log('REST-only mode: Using REST for tiles + browser TTS for speech');
         return;
       }
 
@@ -182,7 +183,7 @@ export default function Home() {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [useLiveAPI]);
 
   // Update debug data periodically
   useEffect(() => {
@@ -228,9 +229,14 @@ export default function Home() {
 
     const now = Date.now();
     // Slow polling when entity focused (3s) to reduce context changes while child explores phrases
-    const throttleMs = state.focusedEntity ? 3000 : 300;
+    const throttleMs = state.focusedEntity ? 3000 : 500;
     if (now - lastCaptureRef.current < throttleMs) return;
+
+    // Skip if request already in-flight (let it complete)
+    if (abortControllerRef.current) return;
+
     lastCaptureRef.current = now;
+    abortControllerRef.current = new AbortController();
 
     try {
       const response = await fetch('/api/tiles', {
@@ -240,7 +246,8 @@ export default function Home() {
           image: base64Image,
           location,
           placeName: nearestPlace?.name
-        })
+        }),
+        signal: abortControllerRef.current.signal
       });
 
       if (!response.ok) throw new Error('API error');
@@ -263,8 +270,13 @@ export default function Home() {
       }
 
     } catch (err) {
+      // Ignore abort errors (expected when canceling stale requests)
+      if (err instanceof Error && err.name === 'AbortError') return;
       console.error('Error getting tiles:', err);
       dispatch({ type: 'SET_FALLBACK_TILES' });
+    } finally {
+      // Clear controller so next request can proceed
+      abortControllerRef.current = null;
     }
   }, [dispatch, location, state.connectionMode, state.focusedEntity, liveClient, nearestPlace]);
 
@@ -520,6 +532,20 @@ export default function Home() {
             <span className="text-white/40 text-xs ml-0.5">▼</span>
           </button>
           <div className="flex items-center gap-3">
+            {/* Live/REST toggle for demo */}
+            <button
+              onClick={() => setUseLiveAPI(prev => !prev)}
+              className={`px-2 py-1 text-xs font-medium rounded-full backdrop-blur-md active:scale-95 transition-all ${
+                useLiveAPI
+                  ? state.liveSessionActive
+                    ? 'bg-green-500/80 text-white'
+                    : 'bg-yellow-500/80 text-black'
+                  : 'bg-gray-500/80 text-white'
+              }`}
+              aria-label="Toggle Live API"
+            >
+              {useLiveAPI ? (state.liveSessionActive ? 'LIVE' : 'CONNECTING...') : 'REST'}
+            </button>
             {/* Camera flip - mobile only */}
             <button
               onClick={() => setCameraFacing(prev => prev === 'environment' ? 'user' : 'environment')}

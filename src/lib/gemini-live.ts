@@ -3,7 +3,7 @@
 /**
  * Gemini Live API WebSocket Client
  *
- * Model: gemini-2.5-flash-native-audio-preview-12-2025
+ * Model: gemini-2.0-flash-exp (v1alpha API)
  * Session limit: 2 minutes (Audio+Video)
  *
  * Events:
@@ -45,7 +45,7 @@ export interface GeminiLiveConfig {
   onSessionExpiring?: () => void;
 }
 
-const DEFAULT_MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
+const DEFAULT_MODEL = 'gemini-2.0-flash-exp';
 const SESSION_LIMIT_MS = 2 * 60 * 1000; // 2 minutes for audio+video
 const RECONNECT_BUFFER_MS = 10 * 1000; // Reconnect 10s before expiry
 
@@ -134,7 +134,7 @@ export class GeminiLiveClient {
     this.isConnecting = true;
 
     try {
-      const endpoint = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${this.config.apiKey}`;
+      const endpoint = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${this.config.apiKey}`;
 
       console.log('[GeminiLive] Connecting to:', endpoint.replace(/key=.*/, 'key=***'));
       console.log('[GeminiLive] API key length:', this.config.apiKey?.length || 0);
