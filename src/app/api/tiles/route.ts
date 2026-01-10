@@ -1,32 +1,41 @@
 import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
+import { affirmContext, generateGrid, ContextType } from '@/lib/tiles';
 
-const SYSTEM_PROMPT = `You are an AAC (Augmentative and Alternative Communication) assistant for a non-verbal child.
+// Define the schema for Context Classification
+const responseSchema = {
+  type: 'OBJECT',
+  properties: {
+    primaryContext: {
+      type: 'STRING',
+      enum: ['restaurant_counter', 'restaurant_table', 'playground', 'classroom', 'home_kitchen', 'home_living', 'store_checkout', 'medical_office', 'unknown']
+    },
+    confidenceScore: { type: 'NUMBER' },
+    secondaryContexts: {
+      type: 'ARRAY',
+      items: { type: 'STRING' }
+    },
+    entitiesDetected: {
+      type: 'ARRAY',
+      items: { type: 'STRING' }
+    },
+    situationInference: { type: 'STRING' },
+  },
+  required: ['primaryContext', 'confidenceScore', 'secondaryContexts', 'entitiesDetected', 'situationInference'],
+};
 
-Analyze the image and return 3-5 contextual communication options that the child might want to express.
+const SYSTEM_PROMPT = `You are analyzing an image to help a non-verbal child with communication needs.
 
-Return ONLY a valid JSON array with this exact structure:
-[
-  {"id": 1, "text": "I want that", "emoji": "👉"},
-  {"id": 2, "text": "I'm hungry", "emoji": "🍽️"},
-  {"id": 3, "text": "Help me please", "emoji": "🙋"}
-]
+Identify:
+1. PRIMARY_CONTEXT: The main situation (restaurant_counter, playground, etc.)
+2. ENTITIES: Objects and people visible that might be relevant for communication
+3. SITUATION: A brief description of what's happening
 
-Rules:
-- Keep phrases short (2-5 words)
-- Use first person ("I want", "I need", "I like", NOT "The child wants")
-- Include a relevant emoji for visual recognition
-- Prioritize likely needs and desires based on what you see
-- Consider common AAC needs: wants, needs, feelings, greetings, questions
-- Always include at least one "help" or "more options" type tile
-- Make responses appropriate for a child's perspective
+Allowed Contexts: restaurant_counter, restaurant_table, playground, classroom, home_kitchen, home_living, store_checkout, medical_office, unknown.
 
-Examples by context:
-- Food/Kitchen: "I'm hungry", "I want that", "More please", "All done", "I want juice"
-- People/Social: "Hello!", "Thank you", "I love you", "Play with me", "Bye bye"
-- Outdoors/Park: "I want to play", "Push me!", "Help me", "I'm tired", "Let's go"
-- Toys/Play: "My turn", "I want that one", "More!", "Fun!", "All done"
-- General: "Yes", "No", "Help me", "I don't know", "Wait"`;
+Be conservative with confidence. If unsure, use lower confidence (0.0 - 1.0).
+
+Generate a JSON object following the schema.`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,7 +56,11 @@ export async function POST(request: NextRequest) {
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-preview-05-20',
+      model: 'gemini-3-flash',
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: responseSchema,
+      },
       contents: [
         {
           role: 'user',
@@ -59,46 +72,62 @@ export async function POST(request: NextRequest) {
       ]
     });
 
-    const text = response.text || '';
+    const text = response.text;
 
-    // Extract JSON from response (handle markdown code blocks)
-    let jsonStr = text;
-    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonStr = jsonMatch[1];
+    if (!text) {
+      throw new Error('Empty response from Gemini');
     }
 
-    // Parse the JSON
-    const tiles = JSON.parse(jsonStr.trim());
+    const classification = JSON.parse(text);
 
-    // Validate structure
-    if (!Array.isArray(tiles)) {
-      throw new Error('Response is not an array');
+    // Apply Affirmation Logic
+    const affirmation = affirmContext(classification);
+
+    let tiles = [];
+    if (affirmation.affirmed && affirmation.finalContext) {
+      // Auto-generate grid if affirmed
+      const grid = generateGrid({
+        affirmedContext: affirmation.finalContext as ContextType,
+        gridSize: 9
+      });
+      tiles = grid.tiles;
     }
 
-    // Ensure each tile has required fields
-    const validTiles = tiles
-      .filter(
-        (t): t is { id: number; text: string; emoji: string } =>
-          typeof t.text === 'string' && typeof t.emoji === 'string'
-      )
-      .map((t, i) => ({
-        id: t.id || i + 1,
-        text: t.text,
-        emoji: t.emoji
-      }));
+    return NextResponse.json({
+      classification,
+      affirmation,
+      tiles // Will be empty if not auto-affirmed
+    });
 
-    return NextResponse.json({ tiles: validTiles });
   } catch (error) {
     console.error('Tiles API error:', error);
 
-    // Return fallback tiles on error
+    // Fallback classification and tiles
     return NextResponse.json({
+      classification: {
+        primaryContext: 'unknown',
+        confidenceScore: 0,
+        secondaryContexts: [],
+        entitiesDetected: [],
+        situationInference: 'Error processing image'
+      },
+      affirmation: {
+        affirmed: false,
+        method: 'manual',
+        finalContext: null,
+        showUI: true,
+        uiOptions: {
+          type: 'full_picker',
+          prompt: 'Choose your situation',
+          options: [
+            { label: 'Help', icon: '🙋', context: 'restaurant_counter' } // Minimal fallback
+          ]
+        }
+      },
       tiles: [
-        { id: 1, text: 'Help me', emoji: '🙋' },
-        { id: 2, text: 'Yes', emoji: '✅' },
-        { id: 3, text: 'No', emoji: '❌' },
-        { id: 4, text: 'More options', emoji: '➕' }
+        { id: 'core_help', label: 'Help', tts: 'I need help', emoji: '🙋', priority: 100, position: 0, row: 0, col: 0, relevanceScore: 100 },
+        { id: 'core_yes', label: 'Yes', tts: 'Yes', emoji: '✅', priority: 100, position: 1, row: 0, col: 1, relevanceScore: 100 },
+        { id: 'core_no', label: 'No', tts: 'No', emoji: '❌', priority: 100, position: 2, row: 0, col: 2, relevanceScore: 100 }
       ]
     });
   }

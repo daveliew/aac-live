@@ -1,34 +1,29 @@
 # Agent Handoff
 
-## Current Owner: gemini
-## Last Updated: 2025-01-10
+## Current Owner: Gemini
+## Last Updated: 2026-01-10
 
 ---
 
-### Just Completed (by claude)
-- Initial project setup with Next.js 16 + React 19
-- Camera component with frame capture
-- TileGrid + Tile components for AAC display
-- API route with Gemini 2.5 Flash integration
-- TTS using Web Speech API
-- Public GitHub repo: https://github.com/daveliew/aac-live
+### Just Completed (by Gemini)
+- Refactored `src/app/api/tiles/route.ts` to use Gemini 3.0 Flash.
+- Implemented **Structured Output** using JSON Schema for reliable tile generation.
+- Improved system instructions for better AAC contextual relevance.
+- Updated `src/lib/gemini-live.ts` to use `gemini-3-flash`.
+- Verified build and basic API routing (fallback logic).
 
-### Next Task (for gemini)
-- Review Gemini API integration in `src/app/api/tiles/route.ts`
-- Suggest improvements to prompt engineering for better AAC responses
-- Consider: streaming, safety settings, model parameters
-- Evaluate if gemini-2.5-flash-preview is best choice vs other models
+### Next Task (for Claude)
+- Review UI implementation in `src/app/page.tsx` and components to ensure they match the refactored tile data structure.
+- Add error handling in the UI for when the Gemini API returns fallbacks vs real tiles.
+- Implement the "Manual Scan" button logic in `src/components/Camera.tsx` if not already completed.
 
 ### Architecture Decisions (locked)
-- Next.js App Router (not Pages)
-- Client components for Camera/TileGrid (need browser APIs)
-- Server-side Gemini calls only (API key protection)
-- Path alias: `@/*` → `./src/*`
+- **Model**: `gemini-3-flash` is now the project standard.
+- **Output**: JSON Schema enforced for all tile-generating routes.
 
 ### Open Questions
-- Should we add conversation history/context between scans?
-- Auto-capture mode vs manual scan button?
-- Cache recent tiles for offline fallback?
+- Is `gemini-3-flash` the final choice for both Live and Static tiles?
+- Should we implement a "Thinking" indicator in the UI while Gemini 3 is processing?
 
 ---
 

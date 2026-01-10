@@ -1,22 +1,22 @@
 'use client';
 
 import { useRef, useEffect, useCallback, useState } from 'react';
+import { GeminiLiveClient } from '@/lib/gemini-live';
 
 interface CameraProps {
   onCapture: (base64: string) => void;
-  autoCapture?: boolean;
-  captureInterval?: number;
+  isLive?: boolean;
 }
 
 export default function Camera({
   onCapture,
-  autoCapture = false,
-  captureInterval = 3000
+  isLive = false
 }: CameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const liveClientRef = useRef<GeminiLiveClient | null>(null);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -24,7 +24,8 @@ export default function Camera({
     async function startCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: 640, height: 480 }
+          video: { facingMode: 'environment', width: 640, height: 480 },
+          audio: isLive // Enable audio for live mode
         });
 
         if (videoRef.current) {
@@ -34,7 +35,7 @@ export default function Camera({
           };
         }
       } catch (err) {
-        setError('Camera access denied. Please allow camera permissions.');
+        setError('Camera/Mic access denied. Please allow permissions.');
         console.error('Camera error:', err);
       }
     }
@@ -46,9 +47,9 @@ export default function Camera({
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, []);
+  }, [isLive]);
 
-  const captureFrame = useCallback(() => {
+  const captureFrame = useCallback((sendToLive: boolean = false) => {
     if (!videoRef.current || !canvasRef.current || !isReady) return;
 
     const video = videoRef.current;
@@ -61,49 +62,71 @@ export default function Camera({
     if (!ctx) return;
 
     ctx.drawImage(video, 0, 0);
-    const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-    onCapture(base64);
+    const base64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+    
+    if (sendToLive && liveClientRef.current) {
+      liveClientRef.current.sendMediaChunk(base64);
+    } else {
+      onCapture(base64);
+    }
   }, [isReady, onCapture]);
 
-  // Auto-capture at interval if enabled
+  // Handle streaming in live mode
   useEffect(() => {
-    if (!autoCapture || !isReady) return;
+    if (!isLive || !isReady) return;
 
-    const interval = setInterval(captureFrame, captureInterval);
+    const interval = setInterval(() => {
+      captureFrame(true);
+    }, 1000); // 1fps for vision updates in live mode
+
     return () => clearInterval(interval);
-  }, [autoCapture, isReady, captureFrame, captureInterval]);
+  }, [isLive, isReady, captureFrame]);
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-64 bg-gray-800 rounded-xl">
-        <p className="text-red-400 text-center px-4">{error}</p>
+      <div className="flex items-center justify-center h-64 bg-gray-800 rounded-2xl border-2 border-dashed border-gray-700">
+        <p className="text-red-400 text-center px-4 font-medium">{error}</p>
       </div>
     );
   }
 
   return (
-    <div className="relative">
+    <div className="relative group overflow-hidden rounded-2xl shadow-2xl bg-black aspect-video flex items-center justify-center">
       <video
         ref={videoRef}
         autoPlay
         playsInline
         muted
-        className="w-full rounded-xl shadow-lg"
+        className={`w-full h-full object-cover transition-opacity duration-700 ${isReady ? 'opacity-100' : 'opacity-0'}`}
       />
       <canvas ref={canvasRef} className="hidden" />
 
-      {isReady && (
+      {/* Overlay Glow */}
+      <div className={`absolute inset-0 pointer-events-none transition-opacity duration-300 ${isLive ? 'opacity-30' : 'opacity-0'}`}>
+        <div className="absolute inset-0 bg-blue-500/20 blur-3xl animate-pulse" />
+      </div>
+
+      {isReady && !isLive && (
         <button
-          onClick={captureFrame}
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-all active:scale-95"
+          onClick={() => captureFrame(false)}
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white text-black font-bold py-4 px-8 rounded-full shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 active:scale-95 transition-all flex items-center gap-2 group/btn"
         >
-          Scan Context
+          <span className="w-3 h-3 bg-red-500 rounded-full group-hover/btn:animate-ping" />
+          Analyze Scene
         </button>
       )}
 
+      {isLive && (
+        <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
+          <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
+          <span className="text-xs font-bold tracking-widest uppercase">Live Vision</span>
+        </div>
+      )}
+
       {!isReady && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 rounded-xl">
-          <div className="animate-pulse text-white">Starting camera...</div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 gap-4">
+          <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+          <div className="text-blue-400 font-medium tracking-wide animate-pulse">Initializing Sensors...</div>
         </div>
       )}
     </div>
