@@ -18,26 +18,40 @@ npm run lint     # ESLint check
 ## Environment
 
 ```
-GEMINI_API_KEY=your_key_here
+GEMINI_API_KEY=your_key_here              # Server-side (REST fallback)
+NEXT_PUBLIC_GEMINI_API_KEY=your_key_here  # Client-side (Live API)
 ```
 
-## Architecture
+## Architecture: Live-First Hybrid
 
-### Data Flow (REST API)
+### Data Flow
 ```
-Camera.tsx ──► /api/tiles ──► tiles.ts (logic) ──► TileGrid.tsx ──► tts.ts
-(1 FPS)       (Gemini 3)     (affirm/grid)      (render)        (speak)
+PRIMARY (Live API - WebSocket):
+Camera.tsx ──► gemini-live.ts ──► Gemini 2.5 Live ──► Native Audio + Tiles
+(1 FPS)       (WebSocket)        (real-time)         (wow factor)
+
+FALLBACK (REST API - HTTP):
+Camera.tsx ──► /api/tiles ──► Gemini 3 Flash ──► tiles.ts ──► Browser TTS
+(1 FPS)       (POST)          (vision)           (grid)       (fallback)
 ```
+
+### Models
+| Layer | Model | API |
+|-------|-------|-----|
+| Primary | `gemini-2.5-flash-native-audio-preview-12-2025` | WebSocket |
+| Fallback | `gemini-3-flash-preview` | REST |
 
 ### Key Files
 | File | Purpose |
 |------|---------|
-| `src/app/page.tsx` | State orchestration, main layout |
-| `src/app/api/tiles/route.ts` | Gemini 3 vision → ContextClassification |
+| `src/lib/gemini-live.ts` | WebSocket client for Gemini 2.5 Live API |
+| `src/app/page.tsx` | State orchestration, Live API init, main layout |
+| `src/app/api/tiles/route.ts` | REST fallback: Gemini 3 → ContextClassification |
 | `src/lib/tiles.ts` | Affirmation logic + Grid generation engine |
-| `src/components/Camera.tsx` | Video capture + frame streaming |
-| `src/components/TileGrid.tsx` | Tile display + click handler |
-| `src/lib/tts.ts` | Web Speech API text-to-speech |
+| `src/components/Camera.tsx` | Dual-mode: WebSocket stream or REST POST |
+| `src/components/ContextLockIndicator.tsx` | Shows locked context + connection mode |
+| `src/components/TileGrid.tsx` | Tile display + click → native audio |
+| `src/lib/tts.ts` | Browser TTS (REST fallback only) |
 
 ### Domain Logic (`tiles.ts`)
 
@@ -55,10 +69,16 @@ Camera.tsx ──► /api/tiles ──► tiles.ts (logic) ──► TileGrid.ts
 
 ### Gemini Integration (Authoritative)
 
-**Model**: `gemini-3-flash-preview`
-- Gemini 3 Flash for high-accuracy scene classification
+**Primary (Live API)**:
+- Model: `gemini-2.5-flash-native-audio-preview-12-2025`
+- WebSocket streaming for real-time vision + native TTS
+- 2-minute session limit → auto-reconnect
+
+**Fallback (REST API)**:
+- Model: `gemini-3-flash-preview`
+- HTTP POST for scene classification
 - Uses `responseSchema` for strict JSON
-- **Tools**: `googleSearch` enabled for context/entity discovery
+- **Tools**: `googleSearch` enabled
 
 **SDK**: `@google/genai`
 

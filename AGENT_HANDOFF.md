@@ -5,23 +5,26 @@
 
 ---
 
-## Status: Integration Complete
+## Status: Live API Components Built, Wiring Needed
 
 ### Just Completed
 - **Glimpse Branding**: Identity locked ("Communication at the speed of sight")
-- **Visual Assets**: Logo, App Icon, Hero, and Mockup generated via Nano Banana Pro
-- **Professional Validation**: Aligned with Vicki Clarke’s AAC principles (Autonomous Communication)
-- **Presentation Outline**: Card-by-card pitch structure finalized for Gamma
-- **AAC Affirmation System**: Full implementation with Gemini 3 Flash
-- **Deployment**: Docker + Cloud Run ready
+- **Visual Assets**: Logo, App Icon, Hero, and Mockup generated
+- **Live-First Architecture**: Decision locked (Live primary, REST fallback)
+- **Live API Client**: `gemini-live.ts` complete with auto-reconnect
+- **State Management**: `useAACState.ts` updated with context locking + connection modes
+- **Dual-Mode Camera**: `Camera.tsx` supports WebSocket or REST
+- **Context Lock UI**: `ContextLockIndicator.tsx` component ready
 
 ### Next Task
-- [x] **Asset Generation**: Logo, Icon, and Hero Image generated
-- [ ] **Rebranding**: Update repo (README, package.json, CLAUDE.md, page.tsx) to "Glimpse"
-- [ ] **Script Refinement**: Finalize spoken script with "Autonomous Communication" nuance
-- [ ] **Demo Prep**: Verify "McDonald's" demo path logic in `tiles.ts`
-- [ ] Test end-to-end: Snapshot mode with affirmation flow
-- [ ] Test end-to-end: Live mode with debounced context updates
+- [ ] **Wire page.tsx to Live API** (critical path)
+  - Initialize GeminiLiveClient on mount
+  - Pass `mode` and `liveClient` to Camera
+  - Handle onContext, onTiles, onAudio callbacks
+- [ ] **Add Context Confirmation UI** (Phase 1 UX)
+- [ ] **Create ShiftAlertModal** component
+- [ ] **Connect tile clicks to native TTS** (wow factor)
+- [ ] Test end-to-end: Live mode with native audio
 - [ ] Deploy to Vercel for hackathon demo
 
 ---
@@ -44,7 +47,7 @@ If a file is listed under another agent's domain, **do not modify it** without h
 | Domain | Owner | Key Files |
 |--------|-------|-----------|
 | UI/UX, React, State | Claude | `src/components/*`, `src/hooks/*`, `src/app/page.tsx` |
-| Gemini API, Prompts | Gemini | `src/app/api/*` |
+| Gemini API, Prompts | Gemini | `src/app/api/*`, `src/lib/gemini-live.ts` |
 | Shared Logic | Both | `src/lib/tiles.ts` (coordinate changes) |
 | Docs | Human | `AGENT_HANDOFF.md`, `CLAUDE.md` |
 
@@ -90,8 +93,10 @@ _Add ideas here. Human will approve and move to "Next Task"._
 
 | Decision | Value | Rationale |
 |----------|-------|-----------|
-| Model | `gemini-3-flash-preview` | Structured JSON output, fast |
-| Architecture | REST API (always-on) | Simpler, no session limits |
+| Architecture | **Hybrid (Live primary, REST fallback)** | Wow factor + reliability |
+| Primary Model | `gemini-2.5-flash-native-audio-preview-12-2025` | Real-time streaming, native TTS |
+| Fallback Model | `gemini-3-flash-preview` | Structured JSON, no session limits |
+| Session Limit | 2 minutes → auto-reconnect | Live API constraint |
 | Affirmation Logic | In `tiles.ts` | Confidence-based UI |
 | Frame Rate | 1 FPS | Balance latency vs API calls |
 

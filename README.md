@@ -1,20 +1,23 @@
 # Glimpse
 > **Communication at the speed of sight.**
 
-Glimpse is a context-aware Augmentative and Alternative Communication (AAC) app for non-verbal children, powered by Gemini 3. It bridges the gap between sight and voice by automatically surfacing relevant communication tiles based on the child's environment.
+Glimpse is a context-aware Augmentative and Alternative Communication (AAC) app for non-verbal children, powered by Gemini's Live API. It bridges the gap between sight and voice by automatically surfacing relevant communication tiles based on the child's environment.
 
 ## What it does
 
 1. Point your camera at any context (food, toys, people, outdoors)
-2. Tap "Scan Context" to analyze the scene
-3. Get 3-5 relevant communication tiles ("I want that", "Help me", "More please")
-4. Tap any tile to speak it aloud
+2. Real-time scene analysis via Gemini 2.5 Live (WebSocket streaming)
+3. Confirm your context once → tiles lock and stay stable
+4. Tap any tile to speak with Gemini's native voice
 
 ## Quick Start
 
 ```bash
 npm install
-echo "GEMINI_API_KEY=your_key_here" > .env.local
+cat > .env.local << EOF
+GEMINI_API_KEY=your_key_here
+NEXT_PUBLIC_GEMINI_API_KEY=your_key_here
+EOF
 npm run dev
 ```
 
@@ -24,8 +27,8 @@ Open [http://localhost:3000](http://localhost:3000) on a device with a camera.
 
 - Next.js 16 (App Router)
 - React 19
-- Gemini 3 Flash (vision AI)
-- Web Speech API (text-to-speech)
+- **Gemini 2.5 Live** (primary: WebSocket streaming + native TTS)
+- **Gemini 3 Flash** (fallback: REST vision AI)
 - Tailwind CSS 4
 
 ## Multi-Agent Development Experiment
