@@ -8,6 +8,7 @@ import ContextNotification from '@/components/ContextNotification';
 import ShiftAlertModal from '@/components/ShiftAlertModal';
 import ErrorToast from '@/components/ErrorToast';
 import { useAACState, APIResponse } from '@/hooks/useAACState';
+import { usePlaces } from '@/hooks/usePlaces';
 import { ContextType } from '@/lib/tiles';
 import { GeminiLiveClient, ContextClassification, LiveTile } from '@/lib/gemini-live';
 
@@ -18,6 +19,9 @@ export default function Home() {
   const [showMultiChoice, setShowMultiChoice] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lastCaptureRef = useRef<number>(0);
+
+  // Places API for location names (e.g., "McDonald's")
+  const { nearestPlace } = usePlaces(location);
 
   // Live API client
   const liveClientRef = useRef<GeminiLiveClient | null>(null);
@@ -158,6 +162,13 @@ export default function Home() {
     }
   }, []);
 
+  // Update place name when nearby place changes
+  useEffect(() => {
+    if (nearestPlace) {
+      dispatch({ type: 'SET_PLACE_NAME', payload: nearestPlace.name });
+    }
+  }, [nearestPlace, dispatch]);
+
   // Handle frame capture - REST API fallback
   const handleCapture = useCallback(async (base64Image: string) => {
     if (state.connectionMode === 'live' && liveClient?.isConnected()) {
@@ -289,13 +300,18 @@ export default function Home() {
     home_living: '🛋️',
     store_checkout: '🛒',
     medical_office: '🏥',
-    unknown: '📍',
+    unknown: '🪞',  // Mirror = selfie/feelings mode
   };
 
   const activeContext = state.contextLocked ? state.lockedContext : state.context.current;
-  const contextBadge = activeContext
-    ? `${contextEmojis[activeContext] || '📍'} ${activeContext.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}`
-    : '📍 Scanning...';
+
+  // Special handling for feelings mode (selfie/unknown)
+  const isFeelingsMode = activeContext === 'unknown';
+  const contextBadge = isFeelingsMode
+    ? '🪞 How are you feeling?'
+    : activeContext
+      ? `${contextEmojis[activeContext] || '📍'} ${activeContext.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}`
+      : '📍 Scanning...';
 
   // Determine prompt mode and options
   const affirmation = state.context.affirmation;
@@ -368,6 +384,7 @@ export default function Home() {
         <ContextPrompt
           mode={promptMode}
           primaryContext={state.context.current || undefined}
+          placeName={state.placeName || undefined}
           prompt={affirmation.uiOptions.prompt}
           options={affirmation.uiOptions.options}
           onConfirm={handleConfirmContext}

@@ -140,18 +140,16 @@ export class GeminiLiveClient {
   private sendSetupMessage(): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
+    // Test: AUDIO + systemInstruction (no TEXT)
     const setupMessage = {
       setup: {
         model: `models/${this.config.model}`,
         generationConfig: {
-          responseModalities: ['AUDIO', 'TEXT'],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: this.config.voiceName }
-            }
-          }
+          responseModalities: ['AUDIO']
         },
-        systemInstruction: this.config.systemPrompt
+        systemInstruction: {
+          parts: [{ text: this.config.systemPrompt }]
+        }
       }
     };
 
