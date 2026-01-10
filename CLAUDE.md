@@ -23,18 +23,10 @@ GEMINI_API_KEY=your_key_here
 
 ## Architecture
 
-Two modes of operation:
-
-### Snapshot Mode (REST API)
+### Data Flow (REST API)
 ```
 Camera.tsx ──► /api/tiles ──► tiles.ts (logic) ──► TileGrid.tsx ──► tts.ts
-(capture)     (Gemini 3)     (affirm/grid)      (render)        (speak)
-```
-
-### Live Mode (WebSocket)
-```
-Camera.tsx ──► gemini-live.ts ──► TileGrid.tsx ──► tts.ts
-(1 FPS)       (WebSocket)        (render)        (speak)
+(1 FPS)       (Gemini 3)     (affirm/grid)      (render)        (speak)
 ```
 
 ### Key Files
@@ -43,14 +35,13 @@ Camera.tsx ──► gemini-live.ts ──► TileGrid.tsx ──► tts.ts
 | `src/app/page.tsx` | State orchestration, main layout |
 | `src/app/api/tiles/route.ts` | Gemini 3 vision → ContextClassification |
 | `src/lib/tiles.ts` | Affirmation logic + Grid generation engine |
-| `src/lib/gemini-live.ts` | WebSocket Live API client (Multimodal) |
-| `src/components/Camera.tsx` | Video capture + frame extraction |
+| `src/components/Camera.tsx` | Video capture + frame streaming |
 | `src/components/TileGrid.tsx` | Tile display + click handler |
 | `src/lib/tts.ts` | Web Speech API text-to-speech |
 
 ### Domain Logic (`tiles.ts`)
 
-**Affirmation Thresholds**: (from `aac_module_specs.md`)
+**Affirmation Thresholds**: (from `ai_docs/AAC_DOMAIN.md`)
 - **≥0.85**: Auto-proceed (no UI)
 - **≥0.60**: Quick binary confirm ("Are you at a [context]?")
 - **≥0.30**: Multi-choice disambiguation (Top 3 options)
@@ -64,17 +55,10 @@ Camera.tsx ──► gemini-live.ts ──► TileGrid.tsx ──► tts.ts
 
 ### Gemini Integration (Authoritative)
 
-**Dual-Model Architecture** (deliberate choice):
-- **Snapshot Mode (REST)**: `gemini-3-flash-preview`
-  - Gemini 3 Flash for high-accuracy scene classification
-  - Uses `responseSchema` for strict JSON
-  - **Tools**: `googleSearch` enabled for context/entity discovery
-
-- **Live Mode (WebSocket)**: `gemini-2.5-flash-native-audio-preview-12-2025`
-  - Gemini 2.5 Flash Native Audio for real-time streaming
-  - Current production model for Live API (Gemini 3 does not support Live API)
-  - Leverages `v1beta` endpoint
-  - Supports `thinking_level` and `media_resolution`
+**Model**: `gemini-3-flash-preview`
+- Gemini 3 Flash for high-accuracy scene classification
+- Uses `responseSchema` for strict JSON
+- **Tools**: `googleSearch` enabled for context/entity discovery
 
 **SDK**: `@google/genai`
 

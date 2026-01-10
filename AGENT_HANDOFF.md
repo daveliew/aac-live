@@ -8,14 +8,16 @@
 ## Status: Integration Complete
 
 ### Just Completed
+- **Glimpse Branding**: Identity locked ("Communication at the speed of sight")
+- **Presentation Outline**: Card-by-card pitch structure finalized for Gamma
 - **AAC Affirmation System**: Full implementation with Gemini 3 Flash
-- **State Management**: useAACState reducer with debouncing for live mode
-- **UI Components**: AffirmationUI, ContextNotification, DisplayTile support
-- **Documentation**: SOT structure, architecture diagrams, model ID consolidation
 - **Deployment**: Docker + Cloud Run ready
 
 ### Next Task
-- [ ] **Presentation Coordination**: Craft elevator pitch and outline for Gamma deck
+- [ ] **Asset Generation**: Generate Logo, App Icon, and Hero Image using provided prompts
+- [ ] **Scripting**: Write full spoken script for Gamma deck cards (3-min pitch)
+- [ ] **Rebranding**: Update repo (README, package.json, CLAUDE.md) to "Glimpse"
+- [ ] **Demo Prep**: Verify "McDonald's" demo path logic in `tiles.ts`
 - [ ] Test end-to-end: Snapshot mode with affirmation flow
 - [ ] Test end-to-end: Live mode with debounced context updates
 - [ ] Deploy to Vercel for hackathon demo
@@ -40,7 +42,7 @@ If a file is listed under another agent's domain, **do not modify it** without h
 | Domain | Owner | Key Files |
 |--------|-------|-----------|
 | UI/UX, React, State | Claude | `src/components/*`, `src/hooks/*`, `src/app/page.tsx` |
-| Gemini API, Prompts | Gemini | `src/app/api/*`, `src/lib/gemini-live.ts` |
+| Gemini API, Prompts | Gemini | `src/app/api/*` |
 | Shared Logic | Both | `src/lib/tiles.ts` (coordinate changes) |
 | Docs | Human | `AGENT_HANDOFF.md`, `CLAUDE.md` |
 
@@ -75,11 +77,10 @@ Before `git push`, you MUST:
 
 _Add ideas here. Human will approve and move to "Next Task"._
 
-- [ ] Session timeout handling for Live API (2-min limit)
-- [ ] Audio playback from Gemini Live responses
 - [ ] Expand context tile sets (classroom, home, store, medical)
 - [ ] User preference persistence (frequent tiles)
-- [ ] Integrate Vercel AI SDK for robust JSON object generation in `classifyScene`
+- [ ] Integrate Vercel AI SDK for robust JSON object generation
+- [ ] Add TTS voice selection UI
 
 ---
 
@@ -87,11 +88,10 @@ _Add ideas here. Human will approve and move to "Next Task"._
 
 | Decision | Value | Rationale |
 |----------|-------|-----------|
-| REST Model | `gemini-3-flash` | Structured JSON output, fast |
-| Live Model | `gemini-live-2.5-flash-native-audio` | v1beta endpoint, native audio |
-| Affirmation Logic | In `tiles.ts` | Shared between modes |
-| Live Mode Behavior | Fully automated | No confirmation prompts |
-| Snapshot Mode Behavior | Confidence-based UI | 4-tier affirmation |
+| Model | `gemini-3-flash-preview` | Structured JSON output, fast |
+| Architecture | REST API (always-on) | Simpler, no session limits |
+| Affirmation Logic | In `tiles.ts` | Confidence-based UI |
+| Frame Rate | 1 FPS | Balance latency vs API calls |
 
 ---
 
@@ -101,6 +101,6 @@ _Add ideas here. Human will approve and move to "Next Task"._
 |---------|-------------------|
 | Current tasks | `AGENT_HANDOFF.md` |
 | Model IDs & API | `CLAUDE.md` → Gemini Integration |
-| Affirmation logic | `ai_docs/g3_hack/aac_module_specs.md` |
-| Architecture diagrams | `ai_docs/g3_hack/*.mermaid` |
-| Deployment strategy | `ai_docs/planning/deployment-strategy.md` |
+| Affirmation logic | `ai_docs/AAC_DOMAIN.md` |
+| API mechanics | `ai_docs/GEMINI_API.md` |
+| Deployment strategy | `ai_docs/DEPLOYMENT.md` |
