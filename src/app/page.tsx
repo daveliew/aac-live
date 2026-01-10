@@ -12,6 +12,7 @@ import { usePlaces } from '@/hooks/usePlaces';
 import { useAudioCapture } from '@/hooks/useAudioCapture';
 import { ContextType } from '@/lib/tiles';
 import { GeminiLiveClient, ContextClassification, LiveTile } from '@/lib/gemini-live';
+import { geminiTTS, speak } from '@/lib/tts';
 import LocationPicker from '@/components/LocationPicker';
 
 export default function Home() {
@@ -51,8 +52,8 @@ export default function Home() {
     enabled: state.liveSessionActive
   });
 
-  // LIVE MODE: Full generative tiles via Gemini Live API
-  const USE_REST_FOR_CLASSIFICATION = false;
+  // HYBRID MODE: REST for tiles (reliable), Live API for TTS (wow factor)
+  const USE_REST_FOR_CLASSIFICATION = true;
 
   // Initialize Live API on mount - used for native TTS even when REST handles classification
   useEffect(() => {
@@ -291,20 +292,7 @@ export default function Home() {
     dispatch({ type: 'FOCUS_ENTITY', payload: entity });
   }, [dispatch]);
 
-  // Native TTS handler - uses Gemini Live API for natural voice
-  const handleNativeTTS = useCallback((text: string) => {
-    if (liveClient?.isConnected()) {
-      console.log('[NativeTTS] Requesting speech:', text);
-      liveClient.requestTTS(text);
-    } else {
-      // Fallback to browser TTS if Live API not connected
-      console.log('[NativeTTS] Live API not connected, using browser TTS');
-      import('@/lib/tts').then(({ speak }) => speak(text));
-    }
-  }, [liveClient]);
-
-  // Audio playback for native Gemini TTS (raw PCM 24kHz 16-bit)
-  // Reuse AudioContext and schedule chunks seamlessly
+  // Audio playback for Gemini TTS (raw PCM 24kHz 16-bit)
   const audioContextRef = useRef<AudioContext | null>(null);
   const nextPlayTimeRef = useRef(0);
 
@@ -360,6 +348,19 @@ export default function Home() {
       console.error('Error playing audio:', err);
     }
   }, []);
+
+  // Native TTS handler - uses Gemini TTS API for natural voice
+  const handleNativeTTS = useCallback(async (text: string) => {
+    console.log('[TTS] Requesting speech:', text);
+    try {
+      const audioData = await geminiTTS(text);
+      console.log('[TTS] Received audio:', audioData.byteLength, 'bytes');
+      playAudio(audioData);
+    } catch (error) {
+      console.warn('[TTS] Gemini TTS failed, using browser fallback:', error);
+      speak(text);
+    }
+  }, [playAudio]);
 
   // Send debug data to localStorage for /debug page
   const sendDebugData = (data: Record<string, unknown>) => {
@@ -532,8 +533,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Modals and notifications */}
-      {state.notification && (
+      {/* Modals and notifications - skip awaiting_confirmation for cleaner UX */}
+      {state.notification && state.notification.type !== 'awaiting_confirmation' && (
         <ContextNotification
           notification={state.notification}
           onDismiss={handleClearNotification}
