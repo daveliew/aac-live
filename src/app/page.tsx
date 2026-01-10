@@ -192,87 +192,14 @@ export default function Home() {
     }
   }, [nearestPlace, dispatch]);
 
-  // Helper: Extract area name from address
-  const extractAreaName = useCallback((address: string | undefined): string | null => {
-    if (!address) return null;
-    const parts = address.split(',').map(p => p.trim());
-    for (const part of parts) {
-      if (part.startsWith('#') || part.startsWith('Singapore') || /^\d/.test(part)) continue;
-      if (part.length > 3) return part;
-    }
-    return null;
-  }, []);
-
-  // Auto-lock session location on first confident detection
-  useEffect(() => {
-    // Only auto-lock if no session location yet
-    if (state.sessionLocation) return;
-
-    // Need a confident context detection (≥0.7)
-    const classification = state.context.classification;
-    if (!classification || classification.confidenceScore < 0.7) return;
-
-    // Auto-lock with current context
-    const context = classification.primaryContext as ContextType;
-    dispatch({
-      type: 'SET_SESSION_LOCATION',
-      payload: {
-        placeName: nearestPlace?.name || null,
-        areaName: extractAreaName(nearestPlace?.address),
-        context
-      }
-    });
-  }, [state.sessionLocation, state.context.classification, nearestPlace, extractAreaName, dispatch]);
-
-  // Handle GPS re-fetch when major shift detected
-  useEffect(() => {
-    if (!state.majorShiftDetected || !state.pendingShiftContext) return;
-
-    // Re-fetch GPS coordinates
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const newLat = pos.coords.latitude;
-          const newLng = pos.coords.longitude;
-          setLocation({ lat: newLat, lng: newLng });
-          refetchWithCoords(newLat, newLng);
-
-          // Auto-switch to new context
-          dispatch({
-            type: 'SET_SESSION_LOCATION',
-            payload: {
-              placeName: null, // Will be updated when Places API returns
-              areaName: null,
-              context: state.pendingShiftContext!
-            }
-          });
-          dispatch({ type: 'RESET_SHIFT_COUNTER' });
-        },
-        () => {
-          // GPS failed, just switch context without place info
-          dispatch({
-            type: 'SET_SESSION_LOCATION',
-            payload: {
-              placeName: null,
-              areaName: null,
-              context: state.pendingShiftContext!
-            }
-          });
-          dispatch({ type: 'RESET_SHIFT_COUNTER' });
-        },
-        { enableHighAccuracy: true }
-      );
-    }
-  }, [state.majorShiftDetected, state.pendingShiftContext, refetchWithCoords, dispatch]);
-
-  // Handle frame capture - REST API fallback
+  // Handle frame capture - REST API
   const handleCapture = useCallback(async (base64Image: string) => {
     if (state.connectionMode === 'live' && liveClient?.isConnected()) {
       return;
     }
 
     const now = Date.now();
-    if (now - lastCaptureRef.current < 300) return; // Aggressive: 300ms (~3 FPS)
+    if (now - lastCaptureRef.current < 300) return; // 300ms (~3 FPS)
     lastCaptureRef.current = now;
 
     try {
@@ -282,7 +209,7 @@ export default function Home() {
         body: JSON.stringify({
           image: base64Image,
           location,
-          placeName: nearestPlace?.name // Include place context for LLM prompt
+          placeName: nearestPlace?.name
         })
       });
 
@@ -290,29 +217,14 @@ export default function Home() {
 
       const data: APIResponse = await response.json();
 
-      // If session location is set, check for major shifts
-      if (state.sessionLocation) {
-        dispatch({
-          type: 'CHECK_SHIFT',
-          payload: {
-            context: data.classification.primaryContext as ContextType,
-            confidence: data.classification.confidenceScore
-          }
-        });
-        // Still process entities even when locked
-        if (data.classification.entitiesDetected) {
-          dispatch({ type: 'SET_ENTITIES', payload: data.classification.entitiesDetected });
-        }
-      } else {
-        // No session location yet - use API_RESPONSE which handles feelings mode
-        dispatch({ type: 'API_RESPONSE', payload: data });
-      }
+      // Always update tiles + context (simple flow)
+      dispatch({ type: 'API_RESPONSE', payload: data });
+
     } catch (err) {
       console.error('Error getting tiles:', err);
-      // Silent fallback - no error shown to children
       dispatch({ type: 'SET_FALLBACK_TILES' });
     }
-  }, [dispatch, location, state.connectionMode, state.contextLocked, liveClient, nearestPlace]);
+  }, [dispatch, location, state.connectionMode, liveClient, nearestPlace]);
 
   // Apply debounced context changes
   useEffect(() => {

@@ -119,7 +119,16 @@ export const TILE_SETS: Record<ContextType, TileDefinition[]> = {
     ],
     restaurant_table: [],
     classroom: [],
-    home_kitchen: [],
+    home_kitchen: [
+        { id: 'hk_1', label: 'Hungry', tts: 'I am hungry, can I have a snack?', emoji: '🥨', priority: 10 },
+        { id: 'hk_2', label: 'Thirsty', tts: 'I am thirsty, can I have a drink?', emoji: '🥤', priority: 10 },
+        { id: 'hk_3', label: 'Juice', tts: 'Can I have some juice please?', emoji: '🧃', priority: 9 },
+        { id: 'hk_4', label: 'Milk', tts: 'Can I have some milk please?', emoji: '🥛', priority: 9 },
+        { id: 'hk_5', label: 'Cookie', tts: 'Can I have a cookie please?', emoji: '🍪', priority: 8 },
+        { id: 'hk_6', label: 'Fruit', tts: 'Can I have some fruit please?', emoji: '🍎', priority: 8 },
+        { id: 'hk_7', label: 'Open this', tts: 'Can you help me open this please?', emoji: '👐', priority: 9 },
+        { id: 'hk_8', label: 'All done', tts: 'I am all done now', emoji: '✅', priority: 7 },
+    ],
     home_living: [],
     store_checkout: [],
     medical_office: [],
@@ -167,6 +176,17 @@ export const ENTITY_TILE_MAP: Record<string, string[]> = {
     'adult': ['core_help', 'pg_5'],              // Help tiles
     'parent': ['core_help'],
     'teacher': ['core_help'],
+    // Kitchen/Pantry entities
+    'refrigerator': ['hk_2', 'hk_3', 'hk_4'],    // Thirsty, Juice, Milk
+    'fridge': ['hk_2', 'hk_3', 'hk_4'],
+    'pantry': ['hk_1', 'hk_5', 'hk_6'],          // Hungry, Cookie, Fruit
+    'cabinet': ['hk_1', 'hk_5', 'hk_7'],         // Hungry, Cookie, Open this
+    'shelf': ['hk_1', 'hk_5'],
+    'bottle': ['hk_2', 'hk_3', 'hk_7'],          // Thirsty, Juice, Open this
+    'cup': ['hk_2', 'hk_4'],                     // Thirsty, Milk
+    'glass': ['hk_2', 'hk_4'],
+    'juice_box': ['hk_3', 'hk_7'],               // Juice, Open this
+    'snack_bag': ['hk_1', 'hk_5', 'hk_7'],       // Hungry, Cookie, Open this
 };
 
 export interface GridRequest {
