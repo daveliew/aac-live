@@ -31,9 +31,8 @@ interface ContextState {
     transitionPending: boolean;
 }
 
-// Full app state
+// Full app state (always live mode)
 export interface AACState {
-    mode: 'snapshot' | 'live';
     isLoading: boolean;
 
     context: ContextState;
@@ -58,7 +57,6 @@ export interface APIResponse {
 // Actions
 export type AACAction =
     | { type: 'SET_LOADING'; payload: boolean }
-    | { type: 'SET_MODE'; payload: 'snapshot' | 'live' }
     | { type: 'API_RESPONSE'; payload: APIResponse }
     | { type: 'LIVE_TILES'; payload: DisplayTile[] }
     | { type: 'AFFIRM_CONTEXT'; payload: ContextType }
@@ -68,9 +66,8 @@ export type AACAction =
     | { type: 'CLEAR_NOTIFICATION' }
     | { type: 'SET_FALLBACK_TILES' };
 
-// Initial state
+// Initial state (always live mode)
 const INITIAL_STATE: AACState = {
-    mode: 'snapshot',
     isLoading: false,
 
     context: {
@@ -96,14 +93,6 @@ function aacReducer(state: AACState, action: AACAction): AACState {
     switch (action.type) {
         case 'SET_LOADING':
             return { ...state, isLoading: action.payload };
-
-        case 'SET_MODE':
-            return {
-                ...state,
-                mode: action.payload,
-                pendingContext: null,
-                contextDebounceCount: 0
-            };
 
         case 'API_RESPONSE': {
             const { classification, affirmation, tiles } = action.payload;
