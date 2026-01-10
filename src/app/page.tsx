@@ -350,12 +350,32 @@ export default function Home() {
     activeContext.includes(gpsContext) || gpsContext.includes(activeContext.split('_')[0]);
   const showPlaceName = state.placeName && contextsMatch;
 
-  // Show place name if contexts match, otherwise just show visual context
+  // Extract broader location from address (e.g., "Mapletree Business City" from full address)
+  const extractAreaName = (address: string | undefined): string | null => {
+    if (!address) return null;
+    // Singapore addresses often have area names after unit numbers
+    // e.g., "10 Pasir Panjang Road, #01-01 Mapletree Business City, Singapore 117438"
+    const parts = address.split(',').map(p => p.trim());
+    // Look for recognizable area/building names (skip unit numbers and postcodes)
+    for (const part of parts) {
+      // Skip if it's a unit number (#xx-xx) or postcode (Singapore XXXXXX) or street number
+      if (part.startsWith('#') || part.startsWith('Singapore') || /^\d/.test(part)) continue;
+      // Return first meaningful part (usually building/area name)
+      if (part.length > 3) return part;
+    }
+    return null;
+  };
+
+  const areaName = extractAreaName(nearestPlace?.address);
+
+  // Show place name if contexts match, area name if available, otherwise visual context
   const placeBadge = isFeelingsMode
     ? { emoji: '🪞', primary: 'How are you feeling?', secondary: null }
     : showPlaceName
       ? { emoji: contextEmoji, primary: state.placeName, secondary: contextLabel }
-      : { emoji: contextEmoji, primary: contextLabel, secondary: null };
+      : areaName
+        ? { emoji: '📍', primary: areaName, secondary: contextLabel }
+        : { emoji: contextEmoji, primary: contextLabel, secondary: null };
 
   // Determine prompt mode and options
   const affirmation = state.context.affirmation;
@@ -403,8 +423,8 @@ export default function Home() {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Entity chips + Tiles at bottom */}
-        <div className="px-4 pb-8 pointer-events-auto flex flex-col gap-2">
+        {/* Entity chips + Tiles at bottom - pb-safe for mobile notch */}
+        <div className="px-4 pb-16 sm:pb-8 pointer-events-auto flex flex-col gap-2 safe-area-pb">
           {/* Entity chips - what the camera sees */}
           <EntityChips
             entities={state.detectedEntities}

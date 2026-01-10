@@ -25,3 +25,13 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Safe area padding for mobile notches/home indicators */
+.safe-area-pb {
+  padding-bottom: max(4rem, env(safe-area-inset-bottom, 2rem));
+}
+@media (min-width: 640px) {
+  .safe-area-pb {
+    padding-bottom: 2rem;
+  }
+}

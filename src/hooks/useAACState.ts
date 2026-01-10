@@ -487,11 +487,33 @@ function aacReducer(state: AACState, action: AACAction): AACState {
                     : null
             };
 
-        case 'FOCUS_ENTITY':
+        case 'FOCUS_ENTITY': {
+            const focusedEntity = action.payload;
+
+            // If focusing on an entity, regenerate tiles with that entity boosted
+            if (focusedEntity && state.context.current) {
+                const grid = generateGrid({
+                    affirmedContext: state.context.current,
+                    gridSize: 9,
+                    entities: [focusedEntity, ...state.detectedEntities.filter(e => e !== focusedEntity)]
+                });
+
+                const newContextTiles = grid.tiles
+                    .filter(t => !t.alwaysShow)
+                    .map(gridTileToDisplayTile);
+
+                return {
+                    ...state,
+                    focusedEntity,
+                    contextTiles: newContextTiles
+                };
+            }
+
             return {
                 ...state,
-                focusedEntity: action.payload
+                focusedEntity
             };
+        }
 
         default:
             return state;
