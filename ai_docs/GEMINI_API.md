@@ -117,12 +117,19 @@ enable_affective_dialog: true  // Emotion-aware responses
 
 ## Architecture
 
-**Always-On Live Mode** (current implementation):
+**Hybrid Mode** (current implementation):
 ```
-Camera (1 FPS) → WebSocket → Gemini Live → JSON tiles → UI → TTS
+CLASSIFICATION (REST - reliable):
+Camera (1 FPS) → /api/tiles → Gemini 3 Flash → tiles.ts → UI
+
+TTS (Live API - native audio):
+Tile click → gemini-live.ts → Gemini 2.5 Live → Native audio playback
+
+AUDIO INPUT (optional):
+useAudioCapture → Live API WebSocket → Voice context
 ```
 
-The app connects to Gemini Live on mount and streams frames continuously.
+REST handles classification for stability. Live API provides native TTS for wow factor.
 
 ---
 

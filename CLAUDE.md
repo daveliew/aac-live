@@ -53,6 +53,7 @@ Geolocation ──► usePlaces ──► /api/places ──► Google Places �
 |------|---------|
 | `src/app/page.tsx` | State orchestration, Live API init, hybrid mode flag |
 | `src/hooks/useAACState.ts` | Central reducer: context, tiles, entities, session location |
+| `src/hooks/useAudioCapture.ts` | Microphone PCM capture → Live API input |
 | `src/lib/gemini-live.ts` | WebSocket client (2-min session limit → auto-reconnect) |
 | `src/lib/tiles.ts` | Tile definitions, `TILE_SETS`, `ENTITY_TILE_MAP`, grid generation |
 | `src/app/api/tiles/route.ts` | REST: Gemini 3 → ContextClassification |
