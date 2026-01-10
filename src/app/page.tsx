@@ -20,7 +20,6 @@ export default function Home() {
   const [liveStatus, setLiveStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('connecting');
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const audioTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const clientInitialized = useRef(false);
 
   // Handle events from GeminiLiveClient
   const handleLiveEvent = useCallback((event: GeminiLiveEvent) => {
@@ -59,6 +58,8 @@ export default function Home() {
       case 'error':
         setLiveStatus('error');
         console.error('Live error:', event.error);
+        // Load fallback tiles so child can still communicate
+        dispatch({ type: 'SET_FALLBACK_TILES' });
         break;
       case 'close':
         setLiveStatus('idle');
@@ -68,15 +69,9 @@ export default function Home() {
 
   // Auto-connect on mount (always-on live mode)
   useEffect(() => {
-    // Guard against double-initialization in strict mode
-    if (clientInitialized.current) return;
-    clientInitialized.current = true;
-
     const client = new GeminiLiveClient({ apiKey: GEMINI_API_KEY }, handleLiveEvent);
     client.connect();
-
-    // Schedule state update for next tick to avoid sync setState warning
-    queueMicrotask(() => setLiveClient(client));
+    setLiveClient(client);
 
     return () => {
       client.disconnect();
@@ -84,6 +79,18 @@ export default function Home() {
       getAudioPlayer().stop();
     };
   }, [handleLiveEvent]);
+
+  // Connection timeout fallback - if stuck connecting, show fallback tiles
+  useEffect(() => {
+    if (liveStatus === 'connecting' && state.contextTiles.length === 0) {
+      const timeout = setTimeout(() => {
+        if (liveStatus === 'connecting') {
+          dispatch({ type: 'SET_FALLBACK_TILES' });
+        }
+      }, 10000); // 10 second timeout
+      return () => clearTimeout(timeout);
+    }
+  }, [liveStatus, state.contextTiles.length, dispatch]);
 
   // Apply debounced context changes (always live mode)
   useEffect(() => {

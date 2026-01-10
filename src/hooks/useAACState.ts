@@ -259,16 +259,33 @@ function aacReducer(state: AACState, action: AACAction): AACState {
         case 'CLEAR_NOTIFICATION':
             return { ...state, notification: null };
 
-        case 'SET_FALLBACK_TILES':
+        case 'SET_FALLBACK_TILES': {
+            // Generate fallback tiles from 'unknown' context
+            const grid = generateGrid({
+                affirmedContext: 'unknown',
+                gridSize: 9
+            });
+
+            const fallbackTiles = grid.tiles
+                .filter(t => !t.alwaysShow)
+                .map(gridTileToDisplayTile);
+
             return {
                 ...state,
                 isLoading: false,
+                context: {
+                    ...state.context,
+                    current: 'unknown',
+                    confirmedAt: new Date()
+                },
+                contextTiles: fallbackTiles,
                 notification: {
                     type: 'context_changed',
                     message: 'Offline - using fallbacks',
                     timestamp: new Date()
                 }
             };
+        }
 
         default:
             return state;

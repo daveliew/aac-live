@@ -123,7 +123,14 @@ export const TILE_SETS: Record<ContextType, TileDefinition[]> = {
     home_living: [],
     store_checkout: [],
     medical_office: [],
-    unknown: []
+    // Universal fallback tiles for offline/unknown contexts
+    unknown: [
+        { id: 'unk_1', label: 'I want that', tts: 'I want that please', emoji: '👉', priority: 10 },
+        { id: 'unk_2', label: 'Hungry', tts: 'I am hungry', emoji: '🍽️', priority: 9 },
+        { id: 'unk_3', label: 'Thirsty', tts: 'I am thirsty', emoji: '🥤', priority: 9 },
+        { id: 'unk_4', label: 'Bathroom', tts: 'I need to go to the bathroom', emoji: '🚻', priority: 8 },
+        { id: 'unk_5', label: 'Not feeling well', tts: 'I am not feeling well', emoji: '🤒', priority: 8 },
+    ]
 };
 
 /**
