@@ -86,10 +86,12 @@ export async function POST(request: NextRequest) {
 
     let tiles: GridTile[] = [];
     if (affirmation.affirmed && affirmation.finalContext) {
-      // Auto-generate grid if affirmed
+      // Auto-generate grid if affirmed, passing entities for dynamic boosting
       const grid = generateGrid({
         affirmedContext: affirmation.finalContext as ContextType,
-        gridSize: 9
+        gridSize: 9,
+        entities: classification.entitiesDetected,
+        situationInference: classification.situationInference
       });
       tiles = grid.tiles;
     }

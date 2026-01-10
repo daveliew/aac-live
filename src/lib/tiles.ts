@@ -126,42 +126,117 @@ export const TILE_SETS: Record<ContextType, TileDefinition[]> = {
     unknown: []
 };
 
+/**
+ * Entity-to-Tile mapping for dynamic tile boosting
+ * When an entity is detected, tiles with matching IDs get score boost
+ */
+export const ENTITY_TILE_MAP: Record<string, string[]> = {
+    // Playground entities
+    'swing': ['pg_3', 'pg_4', 'pg_2'],           // Push me, Higher, My turn
+    'swings': ['pg_3', 'pg_4', 'pg_2'],
+    'slide': ['pg_2', 'pg_7'],                   // My turn, Again
+    'other_children': ['pg_1', 'pg_2'],          // Can I play?, My turn
+    'children': ['pg_1', 'pg_2'],
+    'kid': ['pg_1', 'pg_2'],
+    'kids': ['pg_1', 'pg_2'],
+    'sandbox': ['pg_1', 'pg_2'],
+    'climbing_frame': ['pg_5', 'pg_6'],          // I need help, Stop
+
+    // Restaurant entities
+    'cashier': ['rc_3', 'rc_7'],                 // How much?, Pay now
+    'counter': ['rc_1', 'rc_2'],                 // Order, Menu please
+    'menu_board': ['rc_1', 'rc_2'],
+    'menu': ['rc_2'],
+    'food': ['rc_5', 'rc_1'],                    // That one, Order
+    'drink': ['rc_4', 'rc_5'],                   // Water, That one
+    'ice_cream': ['rc_5', 'rc_3'],               // That one, How much?
+
+    // Generic/Cross-context
+    'water_fountain': ['rc_4'],                  // Water please
+    'bathroom_sign': ['rc_8'],                   // Bathroom?
+    'toilet': ['rc_8'],
+    'restroom': ['rc_8'],
+    'adult': ['core_help', 'pg_5'],              // Help tiles
+    'parent': ['core_help'],
+    'teacher': ['core_help'],
+};
+
 export interface GridRequest {
     affirmedContext: ContextType;
     gridSize: 6 | 9 | 12;
     layoutPreference?: 'standard' | 'priority_top';
+    entities?: string[];           // Detected entities for dynamic boosting
+    situationInference?: string;   // For ad-hoc tile generation
 }
 
 /**
- * Generates an optimal grid based on affirmed context
+ * Generates an optimal grid based on affirmed context and detected entities
+ * Entity boosting: +50 score when tile matches detected entity
+ * Ad-hoc tiles: Generated for unmapped entities with observation format
  */
 export function generateGrid(request: GridRequest): GridInstance {
-    const { affirmedContext, gridSize } = request;
+    const { affirmedContext, gridSize, entities = [] } = request;
 
     const candidates: ScoredTile[] = [];
+    const normalizedEntities = entities.map(e => e.toLowerCase().replace(/\s+/g, '_'));
 
-    // 1. Add Core Tiles
+    // 1. Add Core Tiles (highest priority, always shown)
     CORE_TILES.forEach(tile => {
         candidates.push({ tile, score: 200, reason: 'core' });
     });
 
-    // 2. Add Context Tiles
+    // 2. Add Context Tiles with entity boosting
     const contextTiles = TILE_SETS[affirmedContext] || [];
     contextTiles.forEach(tile => {
+        let score = tile.priority * 10;
+
+        // Boost score if tile matches any detected entity
+        for (const entity of normalizedEntities) {
+            const boostedIds = ENTITY_TILE_MAP[entity] || [];
+            if (boostedIds.includes(tile.id)) {
+                score += 50;  // Entity match bonus
+                break;
+            }
+        }
+
         candidates.push({
             tile,
-            score: tile.priority * 10,
+            score,
             reason: 'context_match'
         });
     });
 
-    // 3. Filter & Sort
+    // 3. Generate ad-hoc tiles for unmapped entities
+    const seenAdhoc = new Set<string>();
+    for (const entity of normalizedEntities) {
+        // Skip if entity has a tile mapping already
+        if (ENTITY_TILE_MAP[entity]) continue;
+        // Skip duplicates
+        if (seenAdhoc.has(entity)) continue;
+        seenAdhoc.add(entity);
+
+        // Create observation tile for novel entity
+        const displayName = entity.replace(/_/g, ' ');
+        candidates.push({
+            tile: {
+                id: `adhoc_${entity}`,
+                label: `Look, ${displayName}!`,
+                tts: `Look! I see a ${displayName}!`,
+                emoji: '👀',
+                priority: 8
+            },
+            score: 80,  // Above low-priority context tiles, below high-priority
+            reason: 'custom'
+        });
+    }
+
+    // 4. Sort by score (descending)
     const sorted = candidates.sort((a, b) => b.score - a.score);
 
-    // 4. Select top N
+    // 5. Select top N tiles
     const selected = sorted.slice(0, gridSize);
 
-    // 5. Arrange
+    // 6. Arrange in grid layout
     const cols = gridSize <= 6 ? 3 : gridSize <= 9 ? 3 : 4;
     const layout: GridTile[] = selected.map((s, i) => ({
         ...s.tile,

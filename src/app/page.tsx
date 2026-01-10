@@ -9,6 +9,7 @@ import ContextNotification from '@/components/ContextNotification';
 import { useAACState, APIResponse } from '@/hooks/useAACState';
 import { ContextType, formatContext } from '@/lib/tiles';
 import { GeminiLiveClient, GeminiLiveEvent } from '@/lib/gemini-live';
+import { getAudioPlayer } from '@/lib/audio-player';
 
 const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
 
@@ -18,6 +19,8 @@ export default function Home() {
   // Live client state - lifted from LiveAssistant
   const [liveClient, setLiveClient] = useState<GeminiLiveClient | null>(null);
   const [liveStatus, setLiveStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const audioTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Snapshot capture handler
   const handleCapture = useCallback(async (base64Image: string) => {
@@ -47,7 +50,7 @@ export default function Home() {
         break;
       case 'tiles':
         // Convert to DisplayTile format and mark as suggested
-        const displayTiles = event.tiles.map(t => ({
+        const liveTiles = event.tiles.map(t => ({
           id: String(t.id),
           text: t.text,
           tts: t.text,
@@ -55,11 +58,23 @@ export default function Home() {
           isCore: false,
           isSuggested: true
         }));
-        dispatch({ type: 'LIVE_TILES', payload: displayTiles });
+        dispatch({ type: 'LIVE_TILES', payload: liveTiles });
+
+        // Handle context from Live API (debounced)
+        if (event.context) {
+          dispatch({ type: 'DEBOUNCE_CONTEXT', payload: event.context });
+        }
         break;
       case 'audio':
-        // Audio playback (simplified for MVP)
-        console.log('Gemini Live Audio:', event.data.length, 'bytes');
+        // Play PCM audio via Web Audio API
+        setIsAudioPlaying(true);
+        // Reset audio indicator after audio chunk duration (~500ms buffer)
+        if (audioTimeoutRef.current) clearTimeout(audioTimeoutRef.current);
+        audioTimeoutRef.current = setTimeout(() => setIsAudioPlaying(false), 800);
+
+        getAudioPlayer().play(event.data).catch(err => {
+          console.warn('Audio playback error:', err);
+        });
         break;
       case 'error':
         setLiveStatus('error');
@@ -107,6 +122,9 @@ export default function Home() {
       liveClient.disconnect();
       setLiveClient(null);
       setLiveStatus('idle');
+      setIsAudioPlaying(false);
+      if (audioTimeoutRef.current) clearTimeout(audioTimeoutRef.current);
+      getAudioPlayer().stop();
     }
     dispatch({ type: 'SET_MODE', payload: goLive ? 'live' : 'snapshot' });
   }, [dispatch, liveClient, handleLiveEvent]);
@@ -187,6 +205,8 @@ export default function Home() {
               isLive={state.mode === 'live'}
               status={liveStatus}
               onLiveToggle={handleLiveToggle}
+              hasContext={!!state.context.current}
+              isAudioPlaying={isAudioPlaying}
             />
 
             {/* Context Status */}

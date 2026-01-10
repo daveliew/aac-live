@@ -2,6 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Guardrails
+
+> [!IMPORTANT]
+> **Mandatory Action**: Run `/handoff-check` before starting any new task. This ensures you are working on approved items and following the handoff protocol defined in [AGENT_HANDOFF.md](file:///Users/dave/CODE/LEARNING/gemini/aac-live/AGENT_HANDOFF.md).
+
 ## Commands
 
 ```bash
