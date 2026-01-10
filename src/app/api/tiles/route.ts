@@ -56,8 +56,9 @@ export async function POST(request: NextRequest) {
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-flash',
       config: {
+      tools: [{ googleSearch: {} } as unknown as Record<string, unknown>],
         responseMimeType: 'application/json',
         responseSchema: responseSchema,
       },

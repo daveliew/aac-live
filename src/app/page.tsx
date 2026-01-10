@@ -1,22 +1,22 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import Camera from '@/components/Camera';
-import TileGrid, { TileData } from '@/components/TileGrid';
+import TileGrid from '@/components/TileGrid';
 import LiveAssistant from '@/components/LiveAssistant';
+import AffirmationUI from '@/components/AffirmationUI';
+import ContextNotification from '@/components/ContextNotification';
+import { useAACState, APIResponse } from '@/hooks/useAACState';
+import { ContextType, formatContext } from '@/lib/tiles';
 
-// Mock API key for demonstration - in production this would be safely handled
 const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
 
 export default function Home() {
-  const [tiles, setTiles] = useState<TileData[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLive, setIsLive] = useState(false);
-  const [lastContext, setLastContext] = useState<string>('');
+  const { state, dispatch, displayTiles, applyContextIfReady } = useAACState();
 
+  // Snapshot capture handler
   const handleCapture = useCallback(async (base64Image: string) => {
-    setIsLoading(true);
-    setLastContext('Analyzing snapshot...');
+    dispatch({ type: 'SET_LOADING', payload: true });
 
     try {
       const response = await fetch('/api/tiles', {
@@ -25,38 +25,81 @@ export default function Home() {
         body: JSON.stringify({ image: base64Image })
       });
 
-      const data = await response.json();
+      const data: APIResponse = await response.json();
+      dispatch({ type: 'API_RESPONSE', payload: data });
 
-      if (data.tiles && Array.isArray(data.tiles)) {
-        setTiles(data.tiles);
-        setLastContext('Contextual options ready');
-      } else {
-        throw new Error('Invalid response');
-      }
     } catch (error) {
       console.error('Error getting tiles:', error);
-      setLastContext('Offline - using fallbacks');
-      setTiles([
-        { id: 1, text: 'Help me', emoji: '🙋' },
-        { id: 2, text: 'Yes', emoji: '✅' },
-        { id: 3, text: 'No', emoji: '❌' }
-      ]);
-    } finally {
-      setIsLoading(false);
+      dispatch({ type: 'SET_FALLBACK_TILES' });
     }
-  }, []);
+  }, [dispatch]);
 
-  const handleLiveTilesUpdate = (newTiles: TileData[]) => {
-    // Merge or replace tiles
-    setTiles(() => {
-      // Prioritize live tiles, but maybe keep some stable ones
-      return newTiles;
-    });
-    setLastContext('Gemini is watching...');
-  };
+  // Live mode tile updates
+  const handleLiveTilesUpdate = useCallback((newTiles: { id: number; text: string; emoji: string; isSuggested?: boolean }[]) => {
+    // Convert to DisplayTile format
+    const displayTiles = newTiles.map(t => ({
+      id: String(t.id),
+      text: t.text,
+      tts: t.text,
+      emoji: t.emoji,
+      isCore: false,
+      isSuggested: t.isSuggested
+    }));
+    dispatch({ type: 'LIVE_TILES', payload: displayTiles });
+  }, [dispatch]);
+
+  // Apply debounced context changes in live mode
+  useEffect(() => {
+    if (state.context.transitionPending && state.mode === 'live') {
+      const timer = setTimeout(applyContextIfReady, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [state.context.transitionPending, state.mode, applyContextIfReady]);
+
+  // Mode toggle
+  const handleLiveToggle = useCallback((isLive: boolean) => {
+    dispatch({ type: 'SET_MODE', payload: isLive ? 'live' : 'snapshot' });
+  }, [dispatch]);
+
+  // Affirmation handlers
+  const handleAffirm = useCallback((context: ContextType) => {
+    dispatch({ type: 'AFFIRM_CONTEXT', payload: context });
+  }, [dispatch]);
+
+  const handleDismissAffirmation = useCallback(() => {
+    dispatch({ type: 'DISMISS_AFFIRMATION' });
+  }, [dispatch]);
+
+  const handleClearNotification = useCallback(() => {
+    dispatch({ type: 'CLEAR_NOTIFICATION' });
+  }, [dispatch]);
+
+  // Context status message
+  const contextStatus = state.context.current
+    ? `Context: ${formatContext(state.context.current)}`
+    : state.isLoading
+      ? 'Analyzing...'
+      : 'Ready to scan';
 
   return (
     <main className="min-h-screen bg-[#050505] text-white selection:bg-blue-500/30 overflow-x-hidden">
+      {/* Affirmation Modal */}
+      {state.showAffirmationUI && state.context.affirmation && (
+        <AffirmationUI
+          affirmation={state.context.affirmation}
+          onConfirm={handleAffirm}
+          onDismiss={handleDismissAffirmation}
+        />
+      )}
+
+      {/* Context Change Notification */}
+      {state.notification && (
+        <ContextNotification
+          notification={state.notification}
+          onDismiss={handleClearNotification}
+        />
+      )}
+
       {/* Background Decor */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 blur-[120px] rounded-full" />
@@ -84,33 +127,34 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
           {/* Action Column */}
           <div className="lg:col-span-5 space-y-6">
-            <Camera 
-              onCapture={handleCapture} 
-              isLive={isLive}
-            />
-            
-            <LiveAssistant 
-              apiKey={GEMINI_API_KEY}
-              isLive={isLive}
-              onTilesUpdate={handleLiveTilesUpdate}
-              onLiveToggle={setIsLive}
+            <Camera
+              onCapture={handleCapture}
+              isLive={state.mode === 'live'}
             />
 
-            {lastContext && (
-              <div className="flex items-center gap-2 px-4 py-3 bg-white/5 rounded-2xl border border-white/5 text-sm text-gray-500 font-medium">
-                <div className="w-1.5 h-1.5 bg-blue-500/50 rounded-full" />
-                {lastContext}
-              </div>
-            )}
+            <LiveAssistant
+              apiKey={GEMINI_API_KEY}
+              isLive={state.mode === 'live'}
+              onTilesUpdate={handleLiveTilesUpdate}
+              onLiveToggle={handleLiveToggle}
+            />
+
+            {/* Context Status */}
+            <div className="flex items-center gap-2 px-4 py-3 bg-white/5 rounded-2xl border border-white/5 text-sm text-gray-500 font-medium">
+              <div className={`w-1.5 h-1.5 rounded-full ${state.context.current ? 'bg-green-500' : 'bg-blue-500/50'}`} />
+              {contextStatus}
+            </div>
           </div>
 
           {/* Tiles Column */}
           <div className="lg:col-span-7">
             <div className="flex items-center justify-between mb-6 px-2">
               <h2 className="text-xl font-bold tracking-tight">Communication Tiles</h2>
-              <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">{tiles.length} Options</span>
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+                {displayTiles.length} Options
+              </span>
             </div>
-            <TileGrid tiles={tiles} isLoading={isLoading} />
+            <TileGrid tiles={displayTiles} isLoading={state.isLoading} />
           </div>
         </div>
 

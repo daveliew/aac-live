@@ -57,6 +57,30 @@ export interface GridTile extends TileDefinition {
     relevanceScore: number;
 }
 
+/**
+ * Unified tile type for UI display
+ */
+export interface DisplayTile {
+    id: string;
+    text: string;
+    tts: string | null;
+    emoji: string;
+    isCore: boolean;
+    isSuggested?: boolean;
+    relevanceScore?: number;
+}
+
+/**
+ * Notification for context changes
+ */
+export interface ContextNotification {
+    type: 'context_changed' | 'context_confirmed' | 'awaiting_confirmation';
+    message: string;
+    fromContext?: ContextType;
+    toContext?: ContextType;
+    timestamp: Date;
+}
+
 export interface GridInstance {
     gridId: string;
     contextId: ContextType;
@@ -229,4 +253,39 @@ export function affirmContext(classification: ContextClassification): Affirmatio
 
 export function formatContext(context: ContextType): string {
     return context.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+/**
+ * Convert TileDefinition to DisplayTile
+ */
+export function toDisplayTile(tile: TileDefinition, isCore: boolean = false): DisplayTile {
+    return {
+        id: tile.id,
+        text: tile.label,
+        tts: tile.tts,
+        emoji: tile.emoji,
+        isCore,
+        relevanceScore: tile.priority
+    };
+}
+
+/**
+ * Convert GridTile to DisplayTile
+ */
+export function gridTileToDisplayTile(tile: GridTile): DisplayTile {
+    return {
+        id: tile.id,
+        text: tile.label,
+        tts: tile.tts,
+        emoji: tile.emoji,
+        isCore: tile.alwaysShow ?? false,
+        relevanceScore: tile.relevanceScore
+    };
+}
+
+/**
+ * Get core tiles as DisplayTiles
+ */
+export function getCoreTiles(): DisplayTile[] {
+    return CORE_TILES.map(t => toDisplayTile(t, true));
 }

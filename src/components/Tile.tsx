@@ -6,9 +6,10 @@ interface TileProps {
   onClick: () => void;
   isLoading?: boolean;
   isSuggested?: boolean;
+  isCore?: boolean;
 }
 
-export default function Tile({ text, emoji, onClick, isLoading, isSuggested }: TileProps) {
+export default function Tile({ text, emoji, onClick, isLoading, isSuggested, isCore }: TileProps) {
   if (isLoading) {
     return (
       <div className="bg-white/5 backdrop-blur-xl rounded-3xl p-8 border border-white/10 animate-pulse flex flex-col items-center justify-center aspect-square">
@@ -24,9 +25,11 @@ export default function Tile({ text, emoji, onClick, isLoading, isSuggested }: T
       className={`
         relative group flex flex-col items-center justify-center p-6 rounded-3xl aspect-square
         transition-all duration-500 ease-out
-        ${isSuggested 
-          ? 'bg-gradient-to-br from-blue-500/30 to-purple-600/30 border-2 border-blue-400/50 shadow-[0_0_30px_rgba(59,130,246,0.2)] scale-105' 
-          : 'bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20'
+        ${isSuggested
+          ? 'bg-gradient-to-br from-blue-500/30 to-purple-600/30 border-2 border-blue-400/50 shadow-[0_0_30px_rgba(59,130,246,0.2)] scale-105'
+          : isCore
+            ? 'bg-white/8 hover:bg-white/12 border-2 border-white/20 hover:border-white/30'
+            : 'bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20'
         }
         backdrop-blur-2xl shadow-xl
         hover:scale-105 active:scale-95

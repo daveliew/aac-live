@@ -2,7 +2,9 @@
 
 import Tile from './Tile';
 import { speak } from '@/lib/tts';
+import { DisplayTile } from '@/lib/tiles';
 
+// Re-export for backwards compatibility with LiveAssistant
 export interface TileData {
   id: number;
   text: string;
@@ -11,19 +13,23 @@ export interface TileData {
 }
 
 interface TileGridProps {
-  tiles: TileData[];
+  tiles: DisplayTile[];
   isLoading?: boolean;
 }
 
 export default function TileGrid({ tiles, isLoading }: TileGridProps) {
-  const handleTileClick = (tile: TileData) => {
-    speak(tile.text);
+  const handleTileClick = (tile: DisplayTile) => {
+    // Use tts text if available, otherwise use label
+    const textToSpeak = tile.tts || tile.text;
+    if (textToSpeak) {
+      speak(textToSpeak);
+    }
   };
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
+      <div className="grid grid-cols-3 gap-4">
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
           <Tile
             key={i}
             text=""
@@ -52,13 +58,14 @@ export default function TileGrid({ tiles, isLoading }: TileGridProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-3 gap-4">
       {tiles.map((tile) => (
         <Tile
           key={tile.id}
           text={tile.text}
           emoji={tile.emoji}
           isSuggested={tile.isSuggested}
+          isCore={tile.isCore}
           onClick={() => handleTileClick(tile)}
         />
       ))}
