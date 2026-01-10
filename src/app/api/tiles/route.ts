@@ -2,6 +2,9 @@ import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
 import { affirmContext, generateGrid, ContextType, GridTile } from '@/lib/tiles';
 
+// Disable Next.js data cache - real-time vision should never be cached
+export const dynamic = 'force-dynamic';
+
 // Define the schema for Context Classification
 const responseSchema = {
   type: 'OBJECT',
