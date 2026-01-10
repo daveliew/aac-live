@@ -57,6 +57,10 @@ export interface AACState {
     // Place name from GPS (e.g., "McDonald's")
     placeName: string | null;
 
+    // Entity detection (objects in view)
+    detectedEntities: string[];
+    focusedEntity: string | null;
+
     coreTiles: DisplayTile[];
     contextTiles: DisplayTile[];
 
@@ -96,7 +100,10 @@ export type AACAction =
     | { type: 'MAJOR_SHIFT_ALERT'; payload: ContextType }
     | { type: 'DISMISS_SHIFT_ALERT' }
     // Place name action
-    | { type: 'SET_PLACE_NAME'; payload: string | null };
+    | { type: 'SET_PLACE_NAME'; payload: string | null }
+    // Entity detection actions
+    | { type: 'SET_ENTITIES'; payload: string[] }
+    | { type: 'FOCUS_ENTITY'; payload: string | null };
 
 // Major shift threshold
 const MAJOR_SHIFT_CONFIDENCE = 0.8;
@@ -130,6 +137,10 @@ const INITIAL_STATE: AACState = {
 
     // Place name from GPS
     placeName: null,
+
+    // Entity detection
+    detectedEntities: [],
+    focusedEntity: null,
 
     coreTiles: getCoreTiles(),
     contextTiles: [],
@@ -196,6 +207,8 @@ function aacReducer(state: AACState, action: AACAction): AACState {
                 },
                 // Accept tiles if affirmed OR in feelings mode
                 contextTiles: (affirmation.affirmed || isFeelingsMode) ? contextTiles : state.contextTiles,
+                // Store detected entities from classification
+                detectedEntities: classification.entitiesDetected || [],
                 showAffirmationUI: showUI,
                 notification
             };
@@ -461,6 +474,23 @@ function aacReducer(state: AACState, action: AACAction): AACState {
             return {
                 ...state,
                 placeName: action.payload
+            };
+
+        // Entity detection actions
+        case 'SET_ENTITIES':
+            return {
+                ...state,
+                detectedEntities: action.payload,
+                // Clear focus if focused entity is no longer detected
+                focusedEntity: action.payload.includes(state.focusedEntity || '')
+                    ? state.focusedEntity
+                    : null
+            };
+
+        case 'FOCUS_ENTITY':
+            return {
+                ...state,
+                focusedEntity: action.payload
             };
 
         default:

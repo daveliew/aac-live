@@ -7,9 +7,11 @@ interface TileProps {
   onClick: () => void;
   isLoading?: boolean;
   compact?: boolean; // Smaller inline style for bar layout
+  highlighted?: boolean; // Glow effect when entity-matched
 }
 
-export default function Tile({ text, emoji, color, onClick, isLoading, compact }: TileProps) {
+export default function Tile({ text, emoji, color, onClick, isLoading, compact, highlighted }: TileProps) {
+  const highlightClass = highlighted ? 'ring-2 ring-yellow-400 animate-pulse shadow-yellow-400/50' : '';
   if (isLoading) {
     return (
       <div className={`bg-white/20 animate-pulse ${compact ? 'rounded-xl h-14 w-24' : 'rounded-2xl h-20 w-20'}`} />
@@ -23,12 +25,13 @@ export default function Tile({ text, emoji, color, onClick, isLoading, compact }
         onClick={onClick}
         className={`
           ${color}
+          ${highlightClass}
           rounded-xl
           px-3 py-2
           flex items-center gap-2
           shadow-md shadow-black/20
           active:scale-95
-          transition-transform duration-150
+          transition-all duration-150
           whitespace-nowrap
           min-w-fit
         `}
@@ -45,13 +48,14 @@ export default function Tile({ text, emoji, color, onClick, isLoading, compact }
       onClick={onClick}
       className={`
         ${color}
+        ${highlightClass}
         rounded-2xl
         p-3
         h-20 w-20
         flex flex-col items-center justify-center
         shadow-lg shadow-black/20
         active:scale-95
-        transition-transform duration-150
+        transition-all duration-150
       `}
     >
       <span className="text-2xl mb-0.5">{emoji}</span>

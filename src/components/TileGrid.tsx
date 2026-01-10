@@ -2,16 +2,23 @@
 
 import Tile from './Tile';
 import { speak } from '@/lib/tts';
-import { DisplayTile } from '@/lib/tiles';
+import { DisplayTile, ENTITY_TILE_MAP } from '@/lib/tiles';
 import { getTileColor } from '@/lib/tile-colors';
 
 interface TileGridProps {
   tiles: DisplayTile[];
   isLoading?: boolean;
   onTileSpeak?: (text: string) => void;
+  focusedEntity?: string | null;
 }
 
-export default function TileGrid({ tiles, isLoading, onTileSpeak }: TileGridProps) {
+// Get tile IDs that match a focused entity
+function getMatchingTileIds(entity: string): string[] {
+  const normalized = entity.toLowerCase().replace(/\s+/g, '_');
+  return ENTITY_TILE_MAP[normalized] || [];
+}
+
+export default function TileGrid({ tiles, isLoading, onTileSpeak, focusedEntity }: TileGridProps) {
   const handleTileClick = (tile: DisplayTile) => {
     const textToSpeak = tile.tts || tile.text;
     if (textToSpeak) {
@@ -19,6 +26,9 @@ export default function TileGrid({ tiles, isLoading, onTileSpeak }: TileGridProp
       onTileSpeak?.(textToSpeak);
     }
   };
+
+  // Get IDs of tiles that match the focused entity
+  const highlightedTileIds = focusedEntity ? getMatchingTileIds(focusedEntity) : [];
 
   if (isLoading) {
     return (
@@ -54,23 +64,35 @@ export default function TileGrid({ tiles, isLoading, onTileSpeak }: TileGridProp
   const coreTiles = tiles.filter(t => t.isCore);
   const contextTiles = tiles.filter(t => !t.isCore);
 
+  // If entity is focused, prioritize matching tiles
+  let orderedContextTiles = contextTiles;
+  if (focusedEntity && highlightedTileIds.length > 0) {
+    const matchingTiles = contextTiles.filter(t => highlightedTileIds.includes(t.id));
+    const otherTiles = contextTiles.filter(t => !highlightedTileIds.includes(t.id));
+    orderedContextTiles = [...matchingTiles, ...otherTiles];
+  }
+
   // Mixed bar: core tiles + context tiles (limit to reasonable amount)
-  const displayTiles = [...coreTiles, ...contextTiles].slice(0, 12);
+  const displayTiles = [...coreTiles, ...orderedContextTiles].slice(0, 12);
 
   return (
     <div className="flex flex-col gap-3">
       {/* Horizontal scrollable bar with all tiles */}
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-        {displayTiles.map((tile) => (
-          <Tile
-            key={tile.id}
-            text={tile.text}
-            emoji={tile.emoji}
-            color={getTileColor(tile.id, tile.text)}
-            onClick={() => handleTileClick(tile)}
-            compact
-          />
-        ))}
+        {displayTiles.map((tile) => {
+          const isHighlighted = focusedEntity && highlightedTileIds.includes(tile.id);
+          return (
+            <Tile
+              key={tile.id}
+              text={tile.text}
+              emoji={tile.emoji}
+              color={getTileColor(tile.id, tile.text)}
+              onClick={() => handleTileClick(tile)}
+              compact
+              highlighted={isHighlighted}
+            />
+          );
+        })}
       </div>
     </div>
   );

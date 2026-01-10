@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Camera from '@/components/Camera';
 import TileGrid from '@/components/TileGrid';
+import EntityChips from '@/components/EntityChips';
 import ContextPrompt from '@/components/ContextPrompt';
 import ContextNotification from '@/components/ContextNotification';
 import ShiftAlertModal from '@/components/ShiftAlertModal';
@@ -273,6 +274,11 @@ export default function Home() {
     setShowMultiChoice(true);
   }, []);
 
+  // Entity focus handler
+  const handleEntityFocus = useCallback((entity: string | null) => {
+    dispatch({ type: 'FOCUS_ENTITY', payload: entity });
+  }, [dispatch]);
+
   // Audio playback for native Gemini TTS (raw PCM 24kHz 16-bit)
   const playAudio = (audioData: ArrayBuffer) => {
     try {
@@ -376,12 +382,19 @@ export default function Home() {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Tiles at bottom */}
-        <div className="px-4 pb-8 pointer-events-auto">
+        {/* Entity chips + Tiles at bottom */}
+        <div className="px-4 pb-8 pointer-events-auto flex flex-col gap-2">
+          {/* Entity chips - what the camera sees */}
+          <EntityChips
+            entities={state.detectedEntities}
+            focusedEntity={state.focusedEntity}
+            onFocus={handleEntityFocus}
+          />
           <TileGrid
             tiles={displayTiles}
             isLoading={state.isLoading}
             onTileSpeak={setLastSpoken}
+            focusedEntity={state.focusedEntity}
           />
         </div>
       </div>
