@@ -19,6 +19,7 @@ export default function Home() {
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [lastSpoken, setLastSpoken] = useState<string | null>(null);
   const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const lastCaptureRef = useRef<number>(0);
 
   // Places API for location names (e.g., "McDonald's")
@@ -252,7 +253,7 @@ export default function Home() {
           payload: {
             placeName: nearestPlaceRef.current?.name || null,
             areaName: null,
-            context: data.affirmation?.finalContext || data.classification.primaryContext
+            context: data.classification.primaryContext as ContextType
           }
         });
       }
@@ -385,6 +386,7 @@ export default function Home() {
   // Native TTS handler - uses Gemini TTS API for natural voice
   const handleNativeTTS = useCallback(async (text: string) => {
     console.log('[TTS] Requesting speech:', text);
+    setIsSpeaking(true);
     try {
       const audioData = await geminiTTS(text);
       console.log('[TTS] Received audio:', audioData.byteLength, 'bytes');
@@ -392,6 +394,9 @@ export default function Home() {
     } catch (error) {
       console.warn('[TTS] Gemini TTS failed, using browser fallback:', error);
       speak(text);
+    } finally {
+      // Brief delay to let audio start playing before clearing indicator
+      setTimeout(() => setIsSpeaking(false), 500);
     }
   }, [playAudio]);
 
@@ -536,10 +541,14 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Last spoken feedback */}
-        {lastSpoken && (
+        {/* Speaking indicator / Last spoken feedback */}
+        {(isSpeaking || lastSpoken) && (
           <div className="mx-4 px-4 py-2 bg-black/40 backdrop-blur-sm rounded-full pointer-events-auto self-start">
-            <span className="text-white/90 text-sm">🗣️ &quot;{lastSpoken}&quot;</span>
+            {isSpeaking ? (
+              <span className="text-white/90 text-sm animate-pulse">🔊 Speaking...</span>
+            ) : (
+              <span className="text-white/90 text-sm">🗣️ &quot;{lastSpoken}&quot;</span>
+            )}
           </div>
         )}
 
@@ -568,8 +577,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Modals and notifications - skip awaiting_confirmation for cleaner UX */}
-      {state.notification && state.notification.type !== 'awaiting_confirmation' && (
+      {/* Context change notifications */}
+      {state.notification && (
         <ContextNotification
           notification={state.notification}
           onDismiss={handleClearNotification}
