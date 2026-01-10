@@ -41,8 +41,8 @@ export default function Home() {
     enabled: state.liveSessionActive
   });
 
-  // HYBRID MODE: REST for classification (stable), Live API for TTS (wow factor)
-  const USE_REST_FOR_CLASSIFICATION = true;
+  // LIVE MODE: Full generative tiles via Gemini Live API
+  const USE_REST_FOR_CLASSIFICATION = false;
 
   // Initialize Live API on mount - used for native TTS even when REST handles classification
   useEffect(() => {
@@ -380,8 +380,8 @@ export default function Home() {
           const newLng = pos.coords.longitude;
           setLocation({ lat: newLat, lng: newLng });
           refetchWithCoords(newLat, newLng);
-          // Clear session location so it re-detects
-          dispatch({ type: 'RESET_SHIFT_COUNTER' });
+          // Clear session location so auto-detect re-triggers with new place
+          dispatch({ type: 'CLEAR_SESSION_LOCATION' });
         },
         (err) => console.warn('GPS error:', err),
         { enableHighAccuracy: true }

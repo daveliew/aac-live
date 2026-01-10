@@ -129,6 +129,7 @@ export type AACAction =
     | { type: 'FOCUS_ENTITY'; payload: string | null }
     // Session location actions
     | { type: 'SET_SESSION_LOCATION'; payload: { placeName: string | null; areaName: string | null; context: ContextType } }
+    | { type: 'CLEAR_SESSION_LOCATION' }
     | { type: 'SHOW_LOCATION_PICKER' }
     | { type: 'HIDE_LOCATION_PICKER' }
     | { type: 'SELECT_LOCATION'; payload: ContextType }
@@ -580,6 +581,14 @@ function aacReducer(state: AACState, action: AACAction): AACState {
                 showLocationPicker: false
             };
         }
+
+        case 'CLEAR_SESSION_LOCATION':
+            return {
+                ...state,
+                sessionLocation: null,
+                shiftCounter: 0,
+                pendingShiftContext: null
+            };
 
         case 'SHOW_LOCATION_PICKER':
             return {
