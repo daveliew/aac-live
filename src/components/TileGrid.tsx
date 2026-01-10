@@ -80,7 +80,7 @@ export default function TileGrid({ tiles, isLoading, onTileSpeak, focusedEntity 
       {/* Horizontal scrollable bar with all tiles */}
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
         {displayTiles.map((tile) => {
-          const isHighlighted = focusedEntity && highlightedTileIds.includes(tile.id);
+          const isHighlighted = !!focusedEntity && highlightedTileIds.includes(tile.id);
           return (
             <Tile
               key={tile.id}
