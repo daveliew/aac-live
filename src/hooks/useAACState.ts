@@ -154,8 +154,12 @@ function aacReducer(state: AACState, action: AACAction): AACState {
                 .filter(t => !t.alwaysShow)
                 .map(gridTileToDisplayTile);
 
-            // Determine if we need to show UI
-            const showUI = affirmation.showUI && !affirmation.affirmed;
+            // Special case: "unknown" = feelings mode (selfie detected)
+            // Always show tiles immediately, no confirmation needed
+            const isFeelingsMode = classification.primaryContext === 'unknown';
+
+            // Determine if we need to show UI (not for feelings mode)
+            const showUI = !isFeelingsMode && affirmation.showUI && !affirmation.affirmed;
 
             // Context changed notification
             const contextChanged = state.context.current !== null &&
@@ -183,14 +187,15 @@ function aacReducer(state: AACState, action: AACAction): AACState {
                 ...state,
                 isLoading: false,
                 context: {
-                    current: affirmation.finalContext,
+                    current: isFeelingsMode ? 'unknown' as ContextType : affirmation.finalContext,
                     previous: state.context.current,
                     classification,
                     affirmation,
-                    confirmedAt: affirmation.affirmed ? new Date() : null,
-                    transitionPending: !affirmation.affirmed
+                    confirmedAt: (affirmation.affirmed || isFeelingsMode) ? new Date() : null,
+                    transitionPending: !affirmation.affirmed && !isFeelingsMode
                 },
-                contextTiles: affirmation.affirmed ? contextTiles : state.contextTiles,
+                // Accept tiles if affirmed OR in feelings mode
+                contextTiles: (affirmation.affirmed || isFeelingsMode) ? contextTiles : state.contextTiles,
                 showAffirmationUI: showUI,
                 notification
             };
