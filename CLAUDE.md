@@ -63,14 +63,20 @@ Camera.tsx ──► gemini-live.ts ──► TileGrid.tsx ──► tts.ts
 - Renders in 3xN or 4xN grid based on `gridSize`
 
 ### Gemini Integration (Authoritative)
-- **Vision Model (REST)**: `gemini-3-flash`
-  - Uses `responseSchema` for strict JSON.
-  - **Tools**: `googleSearch` enabled for smarter context/entity discovery.
-  - Returns `ContextClassification`.
-- **Live API (WebSocket)**: `gemini-live-2.5-flash-native-audio`
-  - Leverages `v1beta` endpoint.
-  - Supports `thinking_level` and `media_resolution`.
-- **SDK**: `@google/genai`
+
+**Dual-Model Architecture** (deliberate choice):
+- **Snapshot Mode (REST)**: `gemini-3-flash-preview`
+  - Gemini 3 Flash for high-accuracy scene classification
+  - Uses `responseSchema` for strict JSON
+  - **Tools**: `googleSearch` enabled for context/entity discovery
+
+- **Live Mode (WebSocket)**: `gemini-2.5-flash-native-audio-preview-12-2025`
+  - Gemini 2.5 Flash Native Audio for real-time streaming
+  - Current production model for Live API (Gemini 3 does not support Live API)
+  - Leverages `v1beta` endpoint
+  - Supports `thinking_level` and `media_resolution`
+
+**SDK**: `@google/genai`
 
 ### Hackathon Context
 **Track**: Track 6 - Real-Time Multimodal
