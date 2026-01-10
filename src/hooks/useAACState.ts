@@ -42,7 +42,6 @@ interface ContextState {
     current: ContextType | null;
     previous: ContextType | null;
     classification: ContextClassification | null;
-    affirmation: AffirmationResult | null;
     confirmedAt: Date | null;
     transitionPending: boolean;
 }
@@ -88,17 +87,15 @@ export interface AACState {
     coreTiles: DisplayTile[];
     contextTiles: DisplayTile[];
 
-    showAffirmationUI: boolean;
     notification: ContextNotification | null;
 
     pendingContext: ContextType | null;
     contextDebounceCount: number;
 }
 
-// API response shape
+// API response shape (simplified - no affirmation)
 export interface APIResponse {
     classification: ContextClassification;
-    affirmation: AffirmationResult;
     tiles: GridTile[];
 }
 
@@ -107,10 +104,8 @@ export type AACAction =
     | { type: 'SET_LOADING'; payload: boolean }
     | { type: 'API_RESPONSE'; payload: APIResponse }
     | { type: 'LIVE_TILES'; payload: DisplayTile[] }
-    | { type: 'AFFIRM_CONTEXT'; payload: ContextType }
     | { type: 'DEBOUNCE_CONTEXT'; payload: ContextType }
     | { type: 'APPLY_PENDING_CONTEXT' }
-    | { type: 'DISMISS_AFFIRMATION' }
     | { type: 'CLEAR_NOTIFICATION' }
     | { type: 'SET_FALLBACK_TILES' }
     // Connection mode actions
@@ -155,7 +150,6 @@ const INITIAL_STATE: AACState = {
         current: null,
         previous: null,
         classification: null,
-        affirmation: null,
         confirmedAt: null,
         transitionPending: false
     },
@@ -188,7 +182,6 @@ const INITIAL_STATE: AACState = {
     coreTiles: getCoreTiles(),
     contextTiles: [],
 
-    showAffirmationUI: false,
     notification: null,
 
     pendingContext: null,
@@ -201,38 +194,24 @@ function aacReducer(state: AACState, action: AACAction): AACState {
             return { ...state, isLoading: action.payload };
 
         case 'API_RESPONSE': {
-            const { classification, affirmation, tiles } = action.payload;
+            const { classification, tiles } = action.payload;
 
             // Convert GridTile[] to DisplayTile[] (excluding core tiles)
             const contextTiles = tiles
                 .filter(t => !t.alwaysShow)
                 .map(gridTileToDisplayTile);
 
-            // Special case: "unknown" = feelings mode (selfie detected)
-            // Always show tiles immediately, no confirmation needed
-            const isFeelingsMode = classification.primaryContext === 'unknown';
-
-            // Determine if we need to show UI (not for feelings mode)
-            const showUI = !isFeelingsMode && affirmation.showUI && !affirmation.affirmed;
-
-            // Context changed notification
-            const contextChanged = state.context.current !== null &&
-                state.context.current !== affirmation.finalContext;
+            // Simplified: just accept context and tiles directly
+            const newContext = classification.primaryContext as ContextType;
+            const contextChanged = state.context.current !== null && state.context.current !== newContext;
 
             let notification: ContextNotification | null = null;
-
-            if (contextChanged && affirmation.affirmed && affirmation.finalContext) {
+            if (contextChanged) {
                 notification = {
                     type: 'context_changed',
-                    message: `Now at ${formatContext(affirmation.finalContext)}`,
+                    message: `Now at ${formatContext(newContext)}`,
                     fromContext: state.context.current!,
-                    toContext: affirmation.finalContext,
-                    timestamp: new Date()
-                };
-            } else if (showUI) {
-                notification = {
-                    type: 'awaiting_confirmation',
-                    message: affirmation.uiOptions?.prompt || 'Confirm your location',
+                    toContext: newContext,
                     timestamp: new Date()
                 };
             }
@@ -241,52 +220,15 @@ function aacReducer(state: AACState, action: AACAction): AACState {
                 ...state,
                 isLoading: false,
                 context: {
-                    current: isFeelingsMode ? 'unknown' as ContextType : affirmation.finalContext,
+                    current: newContext,
                     previous: state.context.current,
                     classification,
-                    affirmation,
-                    confirmedAt: (affirmation.affirmed || isFeelingsMode) ? new Date() : null,
-                    transitionPending: !affirmation.affirmed && !isFeelingsMode
-                },
-                // Accept tiles if affirmed OR in feelings mode
-                contextTiles: (affirmation.affirmed || isFeelingsMode) ? contextTiles : state.contextTiles,
-                // Store detected entities from classification
-                detectedEntities: classification.entitiesDetected || [],
-                showAffirmationUI: showUI,
-                notification
-            };
-        }
-
-        case 'AFFIRM_CONTEXT': {
-            const confirmedContext = action.payload;
-
-            // Generate new tiles for this context
-            const grid = generateGrid({
-                affirmedContext: confirmedContext,
-                gridSize: 9
-            });
-
-            const contextTiles = grid.tiles
-                .filter(t => !t.alwaysShow)
-                .map(gridTileToDisplayTile);
-
-            return {
-                ...state,
-                context: {
-                    ...state.context,
-                    current: confirmedContext,
-                    previous: state.context.current,
                     confirmedAt: new Date(),
                     transitionPending: false
                 },
                 contextTiles,
-                showAffirmationUI: false,
-                notification: {
-                    type: 'context_confirmed',
-                    message: `Confirmed: ${formatContext(confirmedContext)}`,
-                    toContext: confirmedContext,
-                    timestamp: new Date()
-                }
+                detectedEntities: classification.entitiesDetected || [],
+                notification
             };
         }
 
@@ -341,7 +283,6 @@ function aacReducer(state: AACState, action: AACAction): AACState {
                     current: state.pendingContext,
                     previous: state.context.current,
                     classification: state.context.classification,
-                    affirmation: state.context.affirmation,
                     confirmedAt: new Date(),
                     transitionPending: false
                 },
@@ -369,9 +310,6 @@ function aacReducer(state: AACState, action: AACAction): AACState {
                 contextTiles: action.payload.filter(t => !t.isCore)
             };
         }
-
-        case 'DISMISS_AFFIRMATION':
-            return { ...state, showAffirmationUI: false };
 
         case 'CLEAR_NOTIFICATION':
             return { ...state, notification: null };
@@ -449,7 +387,6 @@ function aacReducer(state: AACState, action: AACAction): AACState {
                     confirmedAt: new Date()
                 },
                 contextTiles: lockedTiles,
-                showAffirmationUI: false,
                 majorShiftDetected: false,
                 notification: {
                     type: 'context_confirmed',

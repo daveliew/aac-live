@@ -34,18 +34,6 @@ export interface ContextClassification {
     situationInference: string;
 }
 
-export interface AffirmationResult {
-    affirmed: boolean;
-    method: 'auto' | 'quick_confirm' | 'disambiguation' | 'manual';
-    finalContext: ContextType | null;
-    showUI: boolean;
-    uiOptions?: {
-        type: 'binary' | 'multi_choice' | 'full_picker';
-        prompt: string;
-        options: { label: string; icon: string; context: ContextType | null; action?: string }[];
-    };
-}
-
 export interface ScoredTile {
     tile: TileDefinition;
     score: number;
@@ -76,7 +64,7 @@ export interface DisplayTile {
  * Notification for context changes
  */
 export interface ContextNotification {
-    type: 'context_changed' | 'context_confirmed' | 'awaiting_confirmation';
+    type: 'context_changed' | 'context_confirmed';
     message: string;
     fromContext?: ContextType;
     toContext?: ContextType;
@@ -315,77 +303,6 @@ export function generateGrid(request: GridRequest): GridInstance {
         tiles: layout,
         generatedAt: new Date(),
         gridSize
-    };
-}
-
-/**
- * Implements the affirmation logic from aac_module_specs.md
- */
-export function affirmContext(classification: ContextClassification): AffirmationResult {
-    const { confidenceScore, primaryContext, secondaryContexts } = classification;
-
-    // HIGH CONFIDENCE: Auto-proceed
-    if (confidenceScore >= 0.85) {
-        return {
-            affirmed: true,
-            method: 'auto',
-            finalContext: primaryContext,
-            showUI: false
-        };
-    }
-
-    // MEDIUM CONFIDENCE: Quick confirm
-    if (confidenceScore >= 0.6) {
-        return {
-            affirmed: false,
-            method: 'quick_confirm',
-            finalContext: null,
-            showUI: true,
-            uiOptions: {
-                type: 'binary',
-                prompt: `Are you at a ${formatContext(primaryContext)}?`,
-                options: [
-                    { label: 'Yes', icon: '✓', context: primaryContext },
-                    { label: 'No', icon: '✗', context: null, action: 'show_alternatives' }
-                ]
-            }
-        };
-    }
-
-    // LOW CONFIDENCE: Disambiguation
-    if (confidenceScore >= 0.3) {
-        const topContexts = [primaryContext, ...secondaryContexts].slice(0, 3);
-        return {
-            affirmed: false,
-            method: 'disambiguation',
-            finalContext: null,
-            showUI: true,
-            uiOptions: {
-                type: 'multi_choice',
-                prompt: 'Where are you?',
-                options: topContexts.map(ctx => ({
-                    label: formatContext(ctx as ContextType),
-                    icon: '📍', // Default icon for now
-                    context: ctx as ContextType
-                }))
-            }
-        };
-    }
-
-    // VERY LOW CONFIDENCE: Manual selection
-    return {
-        affirmed: false,
-        method: 'manual',
-        finalContext: null,
-        showUI: true,
-        uiOptions: {
-            type: 'full_picker',
-            prompt: 'Choose your situation',
-            options: [
-                { label: 'Restaurant', icon: '🍴', context: 'restaurant_counter' },
-                { label: 'Playground', icon: '🛝', context: 'playground' },
-            ]
-        }
     };
 }
 

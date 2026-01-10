@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
-import { affirmContext, generateGrid, ContextType, GridTile } from '@/lib/tiles';
+import { generateGrid, ContextType } from '@/lib/tiles';
 
 // Disable Next.js data cache - real-time vision should never be cached
 export const dynamic = 'force-dynamic';
@@ -55,10 +55,8 @@ export async function POST(request: NextRequest) {
     // Build location context if available
     let locationContext = '';
     if (placeName) {
-      // Place name from GPS is most useful context
       locationContext = `\n\nLocation Context: The child is currently at or near "${placeName}". Use this to inform your context classification.`;
     } else if (location) {
-      // Fallback to coordinates
       locationContext = `\n\nGeolocation hint: User is at coordinates (${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}). Use this to help determine if they might be indoors/outdoors.`;
     }
 
@@ -98,45 +96,28 @@ export async function POST(request: NextRequest) {
 
     const classification = JSON.parse(text);
 
-    // Apply Affirmation Logic
-    const affirmation = affirmContext(classification);
-
-    let tiles: GridTile[] = [];
-
-    // Special case: "unknown" context = feelings mode (selfie/face detected)
-    // Always show feelings tiles immediately, no confirmation needed
-    const isFeelingsMode = classification.primaryContext === 'unknown';
-
-    if (isFeelingsMode) {
-      // Feelings mode: generate tiles for self-expression
-      const grid = generateGrid({
-        affirmedContext: 'unknown' as ContextType,
-        gridSize: 9,
-        entities: classification.entitiesDetected,
-        situationInference: classification.situationInference
-      });
-      tiles = grid.tiles;
-    } else if (affirmation.affirmed && affirmation.finalContext) {
-      // Normal mode: generate grid if affirmed
-      const grid = generateGrid({
-        affirmedContext: affirmation.finalContext as ContextType,
-        gridSize: 9,
-        entities: classification.entitiesDetected,
-        situationInference: classification.situationInference
-      });
-      tiles = grid.tiles;
-    }
+    // Generate tiles directly based on classification (no affirmation flow)
+    const grid = generateGrid({
+      affirmedContext: classification.primaryContext as ContextType,
+      gridSize: 9,
+      entities: classification.entitiesDetected,
+      situationInference: classification.situationInference
+    });
 
     return NextResponse.json({
       classification,
-      affirmation,
-      tiles // Will be empty if not auto-affirmed
+      tiles: grid.tiles
     });
 
   } catch (error) {
     console.error('Tiles API error:', error);
 
     // Fallback classification and tiles
+    const fallbackGrid = generateGrid({
+      affirmedContext: 'unknown' as ContextType,
+      gridSize: 9
+    });
+
     return NextResponse.json({
       classification: {
         primaryContext: 'unknown',
@@ -145,24 +126,7 @@ export async function POST(request: NextRequest) {
         entitiesDetected: [],
         situationInference: 'Error processing image'
       },
-      affirmation: {
-        affirmed: false,
-        method: 'manual',
-        finalContext: null,
-        showUI: true,
-        uiOptions: {
-          type: 'full_picker',
-          prompt: 'Choose your situation',
-          options: [
-            { label: 'Help', icon: '🙋', context: 'restaurant_counter' } // Minimal fallback
-          ]
-        }
-      },
-      tiles: [
-        { id: 'core_help', label: 'Help', tts: 'I need help', emoji: '🙋', priority: 100, position: 0, row: 0, col: 0, relevanceScore: 100 },
-        { id: 'core_yes', label: 'Yes', tts: 'Yes', emoji: '✅', priority: 100, position: 1, row: 0, col: 1, relevanceScore: 100 },
-        { id: 'core_no', label: 'No', tts: 'No', emoji: '❌', priority: 100, position: 2, row: 0, col: 2, relevanceScore: 100 }
-      ]
+      tiles: fallbackGrid.tiles
     });
   }
 }

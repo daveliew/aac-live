@@ -1,3 +1,32 @@
+/**
+ * Gemini TTS - Uses dedicated TTS model for high-quality speech
+ * Returns raw PCM audio (24kHz, 16-bit, mono)
+ */
+export async function geminiTTS(text: string): Promise<ArrayBuffer> {
+  console.log('[geminiTTS] Requesting:', text);
+
+  const response = await fetch('/api/tts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  });
+
+  console.log('[geminiTTS] Response status:', response.status, response.headers.get('content-type'));
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    console.error('[geminiTTS] API error:', error);
+    throw new Error(`TTS failed: ${error.error || response.statusText}`);
+  }
+
+  const audioData = await response.arrayBuffer();
+  console.log('[geminiTTS] Received audio:', audioData.byteLength, 'bytes');
+  return audioData;
+}
+
+/**
+ * Browser TTS fallback - Uses Web Speech API
+ */
 export function speak(text: string) {
   // Cancel any ongoing speech
   speechSynthesis.cancel();

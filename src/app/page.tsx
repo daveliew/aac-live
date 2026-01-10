@@ -5,7 +5,6 @@ import Camera from '@/components/Camera';
 import TileGrid from '@/components/TileGrid';
 import EntityChips from '@/components/EntityChips';
 import ContextNotification from '@/components/ContextNotification';
-import ContextPrompt from '@/components/ContextPrompt';
 import ShiftAlertModal from '@/components/ShiftAlertModal';
 import { useAACState, APIResponse } from '@/hooks/useAACState';
 import { usePlaces } from '@/hooks/usePlaces';

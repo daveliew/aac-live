@@ -76,8 +76,10 @@ export default function Camera({ onCapture, mode = 'rest', liveClient, fullscree
 
     // Send frame based on mode
     if (mode === 'live' && liveClient?.isConnected()) {
+      console.log('[Camera] Live mode, sending frame');
       liveClient.sendFrame(base64);
     } else {
+      console.log('[Camera] REST mode:', mode, 'connected:', liveClient?.isConnected());
       onCapture(base64);
     }
   }, [isReady, onCapture, mode, liveClient]);
