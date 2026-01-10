@@ -21,14 +21,15 @@ export default function Home() {
   const liveClientRef = useRef<GeminiLiveClient | null>(null);
   const [liveClient, setLiveClient] = useState<GeminiLiveClient | null>(null);
 
-  // Initialize Live API on mount
+  // Initialize Live API on mount - NEXT_PUBLIC_ mapped from GEMINI_API_KEY via next.config.ts
   useEffect(() => {
     const initializeLiveAPI = async () => {
       try {
-        const apiKey = process.env.GEMINI_API_KEY;
+        // next.config.ts maps GEMINI_API_KEY -> NEXT_PUBLIC_GEMINI_API_KEY for client access
+        const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
         if (!apiKey) {
-          console.log('GEMINI_API_KEY not configured, using REST mode');
+          console.log('GEMINI_API_KEY not mapped to NEXT_PUBLIC_, using REST mode');
           dispatch({ type: 'SET_CONNECTION_MODE', payload: 'rest' });
           return;
         }

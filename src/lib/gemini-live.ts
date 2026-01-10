@@ -99,12 +99,16 @@ export class GeminiLiveClient {
     this.isConnecting = true;
 
     try {
-      const endpoint = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BiDiGenerateContent?key=${this.config.apiKey}`;
+      const endpoint = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${this.config.apiKey}`;
+
+      console.log('[GeminiLive] Connecting to:', endpoint.replace(/key=.*/, 'key=***'));
+      console.log('[GeminiLive] API key length:', this.config.apiKey?.length || 0);
 
       this.ws = new WebSocket(endpoint);
       this.ws.binaryType = 'arraybuffer';
 
       this.ws.onopen = () => {
+        console.log('[GeminiLive] WebSocket opened!');
         this.isConnecting = false;
         this.sessionStartTime = Date.now();
         this.sendSetupMessage();
@@ -121,7 +125,8 @@ export class GeminiLiveClient {
         this.config.onError?.(new Error('WebSocket error'));
       };
 
-      this.ws.onclose = () => {
+      this.ws.onclose = (event) => {
+        console.log('[GeminiLive] WebSocket closed:', event.code, event.reason);
         this.isConnecting = false;
         this.clearSessionTimer();
         this.config.onDisconnect?.();
@@ -138,22 +143,19 @@ export class GeminiLiveClient {
     const setupMessage = {
       setup: {
         model: `models/${this.config.model}`,
-        generation_config: {
-          response_modalities: ['AUDIO', 'TEXT'],
-          thinking_level: 'low',
-          media_resolution: 'medium',
-          speech_config: {
-            voice_config: {
-              prebuilt_voice_config: { voice_name: this.config.voiceName }
+        generationConfig: {
+          responseModalities: ['AUDIO', 'TEXT'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: this.config.voiceName }
             }
           }
         },
-        system_instruction: {
-          parts: [{ text: this.config.systemPrompt }]
-        }
+        systemInstruction: this.config.systemPrompt
       }
     };
 
+    console.log('[GeminiLive] Sending setup:', JSON.stringify(setupMessage, null, 2));
     this.ws.send(JSON.stringify(setupMessage));
   }
 
@@ -178,17 +180,20 @@ export class GeminiLiveClient {
   private handleMessage(event: MessageEvent): void {
     // Handle binary audio data
     if (event.data instanceof ArrayBuffer) {
+      console.log('[GeminiLive] Received audio data:', event.data.byteLength, 'bytes');
       this.audioQueue.push(event.data);
       this.config.onAudio?.(event.data);
       return;
     }
 
     // Handle JSON text responses
+    console.log('[GeminiLive] Received message:', event.data.substring(0, 500));
     try {
       const response = JSON.parse(event.data);
 
       // Check for setup complete
       if (response.setupComplete) {
+        console.log('[GeminiLive] Setup complete!');
         return;
       }
 

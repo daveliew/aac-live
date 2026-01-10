@@ -463,7 +463,13 @@ export function useAACState() {
     }, []);
 
     // Combined tiles for display (core in top row + context below)
-    const displayTiles = [...state.coreTiles, ...state.contextTiles];
+    // Deduplicate by ID to prevent React key warnings
+    const seenIds = new Set<string>();
+    const displayTiles = [...state.coreTiles, ...state.contextTiles].filter(tile => {
+        if (seenIds.has(tile.id)) return false;
+        seenIds.add(tile.id);
+        return true;
+    });
 
     return {
         state,
