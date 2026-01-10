@@ -245,6 +245,18 @@ export default function Home() {
       // Always update tiles + context (simple flow)
       dispatch({ type: 'API_RESPONSE', payload: data });
 
+      // Set session location on first high-confidence detection (REST mode)
+      if (!sessionLocationRef.current && data.classification.confidenceScore >= 0.6) {
+        dispatch({
+          type: 'SET_SESSION_LOCATION',
+          payload: {
+            placeName: nearestPlaceRef.current?.name || null,
+            areaName: null,
+            context: data.affirmation.finalContext
+          }
+        });
+      }
+
     } catch (err) {
       console.error('Error getting tiles:', err);
       dispatch({ type: 'SET_FALLBACK_TILES' });
@@ -298,6 +310,14 @@ export default function Home() {
 
   const playAudio = useCallback((audioData: ArrayBuffer) => {
     try {
+      // Handle odd-byte lengths (Gemini sometimes sends partial samples)
+      let pcmData = audioData;
+      if (pcmData.byteLength % 2 !== 0) {
+        const padded = new Uint8Array(pcmData.byteLength + 1);
+        padded.set(new Uint8Array(pcmData));
+        pcmData = padded.buffer;
+      }
+
       // Create AudioContext once and reuse
       if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
         audioContextRef.current = new AudioContext({ sampleRate: 24000 });
@@ -312,7 +332,7 @@ export default function Home() {
       }
 
       // Convert 16-bit PCM to float32 (-1 to 1)
-      const int16Array = new Int16Array(audioData);
+      const int16Array = new Int16Array(pcmData);
       const float32Array = new Float32Array(int16Array.length);
       for (let i = 0; i < int16Array.length; i++) {
         float32Array[i] = int16Array[i] / 32768;
