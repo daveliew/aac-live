@@ -23,6 +23,8 @@ const ENTITY_EMOJIS: Record<string, string> = {
   parent: '👨‍👩‍👧',
   teacher: '👩‍🏫',
   person: '🧑',
+  man: '👨',
+  woman: '👩',
   // Restaurant
   cashier: '🧑‍💼',
   counter: '🛒',
@@ -31,6 +33,17 @@ const ENTITY_EMOJIS: Record<string, string> = {
   food: '🍔',
   drink: '🥤',
   ice_cream: '🍦',
+  // Accessories/Wearables
+  glasses: '👓',
+  eye_glasses: '👓',
+  sunglasses: '🕶️',
+  earbuds: '🎧',
+  wireless_earbuds: '🎧',
+  headphones: '🎧',
+  watch: '⌚',
+  wrist_watch: '⌚',
+  hat: '🧢',
+  cap: '🧢',
   // Generic
   water_fountain: '🚰',
   bathroom: '🚻',
@@ -39,6 +52,9 @@ const ENTITY_EMOJIS: Record<string, string> = {
   door: '🚪',
   table: '🪑',
   chair: '🪑',
+  phone: '📱',
+  laptop: '💻',
+  book: '📖',
   // Animals
   dog: '🐕',
   cat: '🐈',

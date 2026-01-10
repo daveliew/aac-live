@@ -287,10 +287,44 @@ export default function Home() {
     dispatch({ type: 'DISMISS_SHIFT_ALERT' });
   }, [dispatch]);
 
-  // Entity focus handler
-  const handleEntityFocus = useCallback((entity: string | null) => {
+  // Entity focus handler - fetches LLM-generated phrases for the entity
+  const handleEntityFocus = useCallback(async (entity: string | null) => {
     dispatch({ type: 'FOCUS_ENTITY', payload: entity });
-  }, [dispatch]);
+
+    // If selecting an entity, fetch contextual phrases from LLM
+    if (entity) {
+      try {
+        const response = await fetch('/api/entity-phrases', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            entity,
+            context: state.sessionLocation?.context || state.context.current
+          })
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch phrases');
+
+        const data = await response.json();
+
+        // Convert API response to DisplayTile format
+        const phrases = (data.tiles || []).map((t: { id: string; label: string; tts: string; emoji: string; relevanceScore?: number }) => ({
+          id: t.id,
+          text: t.label,
+          tts: t.tts,
+          emoji: t.emoji,
+          isCore: false,
+          isSuggested: true,
+          relevanceScore: t.relevanceScore || 80
+        }));
+
+        dispatch({ type: 'SET_ENTITY_PHRASES', payload: phrases });
+      } catch (err) {
+        console.error('Error fetching entity phrases:', err);
+        dispatch({ type: 'SET_ENTITY_PHRASES_LOADING', payload: false });
+      }
+    }
+  }, [dispatch, state.sessionLocation?.context, state.context.current]);
 
   // Audio playback for Gemini TTS (raw PCM 24kHz 16-bit)
   const audioContextRef = useRef<AudioContext | null>(null);

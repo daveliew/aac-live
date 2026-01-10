@@ -1,13 +1,12 @@
 /**
  * AAC State Management Hook
- * Manages context tracking, tile stability, and affirmation flow
+ * Manages context tracking and tile generation
  */
 
 import { useReducer, useCallback, useRef } from 'react';
 import {
     ContextType,
     ContextClassification,
-    AffirmationResult,
     DisplayTile,
     ContextNotification,
     GridTile,
@@ -83,6 +82,8 @@ export interface AACState {
     // Entity detection (objects in view)
     detectedEntities: string[];
     focusedEntity: string | null;
+    entityPhrases: DisplayTile[];  // LLM-generated phrases for focused entity
+    entityPhrasesLoading: boolean;
 
     coreTiles: DisplayTile[];
     contextTiles: DisplayTile[];
@@ -127,6 +128,8 @@ export type AACAction =
     // Entity detection actions
     | { type: 'SET_ENTITIES'; payload: string[] }
     | { type: 'FOCUS_ENTITY'; payload: string | null }
+    | { type: 'SET_ENTITY_PHRASES'; payload: DisplayTile[] }
+    | { type: 'SET_ENTITY_PHRASES_LOADING'; payload: boolean }
     // Session location actions
     | { type: 'SET_SESSION_LOCATION'; payload: { placeName: string | null; areaName: string | null; context: ContextType } }
     | { type: 'CLEAR_SESSION_LOCATION' }
@@ -179,6 +182,8 @@ const INITIAL_STATE: AACState = {
     // Entity detection
     detectedEntities: [],
     focusedEntity: null,
+    entityPhrases: [],
+    entityPhrasesLoading: false,
 
     coreTiles: getCoreTiles(),
     contextTiles: [],
@@ -523,30 +528,36 @@ function aacReducer(state: AACState, action: AACAction): AACState {
         case 'FOCUS_ENTITY': {
             const focusedEntity = action.payload;
 
-            // If focusing on an entity, regenerate tiles with that entity boosted
-            if (focusedEntity && state.context.current) {
-                const grid = generateGrid({
-                    affirmedContext: state.context.current,
-                    gridSize: 9,
-                    entities: [focusedEntity, ...state.detectedEntities.filter(e => e !== focusedEntity)]
-                });
-
-                const newContextTiles = grid.tiles
-                    .filter(t => !t.alwaysShow)
-                    .map(gridTileToDisplayTile);
-
+            // If deselecting entity, clear entity phrases and restore normal tiles
+            if (!focusedEntity) {
                 return {
                     ...state,
-                    focusedEntity,
-                    contextTiles: newContextTiles
+                    focusedEntity: null,
+                    entityPhrases: [],
+                    entityPhrasesLoading: false
                 };
             }
 
+            // Selecting entity - set loading state (phrases fetched async in page.tsx)
             return {
                 ...state,
-                focusedEntity
+                focusedEntity,
+                entityPhrasesLoading: true
             };
         }
+
+        case 'SET_ENTITY_PHRASES':
+            return {
+                ...state,
+                entityPhrases: action.payload,
+                entityPhrasesLoading: false
+            };
+
+        case 'SET_ENTITY_PHRASES_LOADING':
+            return {
+                ...state,
+                entityPhrasesLoading: action.payload
+            };
 
         // Session location actions
         case 'SET_SESSION_LOCATION': {
@@ -715,10 +726,14 @@ export function useAACState() {
         }
     }, []);
 
-    // Combined tiles for display (core in top row + context below)
-    // Deduplicate by ID to prevent React key warnings
+    // Combined tiles for display
+    // When entity is focused and has phrases, show those instead of context tiles
     const seenIds = new Set<string>();
-    const displayTiles = [...state.coreTiles, ...state.contextTiles].filter(tile => {
+    const activeTiles = state.focusedEntity && state.entityPhrases.length > 0
+        ? state.entityPhrases
+        : state.contextTiles;
+
+    const displayTiles = [...state.coreTiles, ...activeTiles].filter(tile => {
         if (seenIds.has(tile.id)) return false;
         seenIds.add(tile.id);
         return true;
