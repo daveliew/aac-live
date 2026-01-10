@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AAC Live - Context-Aware Communication",
-  description: "AI-powered AAC assistant using Gemini vision",
+  title: "Glimpse - Communication at the speed of sight",
+  description: "AI-powered AAC assistant that sees what your child sees and suggests what they might want to say",
 };
 
 export default function RootLayout({
