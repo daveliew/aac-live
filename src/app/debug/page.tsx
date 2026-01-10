@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import Link from 'next/link';
 import { formatContext, ContextType } from '@/lib/tiles';
 
 interface DebugEntry {
@@ -20,8 +21,9 @@ interface DebugState {
   lastUpdate: Date | null;
 }
 
-export default function DebugPage() {
-  const [debugState, setDebugState] = useState<DebugState>({
+// Get initial debug state from localStorage
+function getInitialDebugState(): DebugState {
+  const defaultState: DebugState = {
     connectionMode: 'disconnected',
     sessionTimeRemaining: 0,
     currentContext: null,
@@ -30,7 +32,23 @@ export default function DebugPage() {
     isLocked: false,
     tileCount: 0,
     lastUpdate: null,
-  });
+  };
+
+  if (typeof window === 'undefined') return defaultState;
+
+  try {
+    const existing = localStorage.getItem('glimpse_debug');
+    if (existing) {
+      return { ...defaultState, ...JSON.parse(existing) };
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return defaultState;
+}
+
+export default function DebugPage() {
+  const [debugState, setDebugState] = useState<DebugState>(getInitialDebugState);
   const [log, setLog] = useState<DebugEntry[]>([]);
   const logRef = useRef<HTMLDivElement>(null);
 
@@ -58,16 +76,6 @@ export default function DebugPage() {
     };
 
     window.addEventListener('storage', handleStorage);
-
-    // Also check for existing debug state
-    const existing = localStorage.getItem('glimpse_debug');
-    if (existing) {
-      try {
-        setDebugState(prev => ({ ...prev, ...JSON.parse(existing) }));
-      } catch {
-        // Ignore
-      }
-    }
 
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
@@ -98,12 +106,12 @@ export default function DebugPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Glimpse Debug</h1>
-          <a
+          <Link
             href="/"
             className="px-4 py-2 text-sm font-medium bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
           >
             Back to App
-          </a>
+          </Link>
         </div>
 
         {/* Status Cards */}

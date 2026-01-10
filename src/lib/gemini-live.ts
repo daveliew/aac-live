@@ -116,7 +116,7 @@ export class GeminiLiveClient {
         this.handleMessage(event);
       };
 
-      this.ws.onerror = (event) => {
+      this.ws.onerror = () => {
         this.isConnecting = false;
         this.config.onError?.(new Error('WebSocket error'));
       };
@@ -199,7 +199,7 @@ export class GeminiLiveClient {
           this.parseResponse(part.text);
         }
       }
-    } catch (error) {
+    } catch {
       // Ignore parse errors for partial messages
     }
   }
@@ -219,7 +219,7 @@ export class GeminiLiveClient {
       if (data.tiles && Array.isArray(data.tiles)) {
         this.config.onTiles?.(data.tiles);
       }
-    } catch (error) {
+    } catch {
       // Non-JSON response, ignore
     }
   }
