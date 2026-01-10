@@ -18,9 +18,14 @@ npm run lint     # ESLint check
 ## Environment
 
 ```
-GEMINI_API_KEY=your_key_here              # Server-side (REST fallback)
-NEXT_PUBLIC_GEMINI_API_KEY=your_key_here  # Client-side (Live API)
+GEMINI_API_KEY=your_key_here   # SINGLE KEY - used for ALL Gemini APIs
 ```
+
+> [!CAUTION]
+> **SINGLE KEY POLICY**: This project uses ONE environment variable only.
+> - `GEMINI_API_KEY` is the ONLY key variable
+> - Exposed to client via `next.config.ts` `env` block
+> - NEVER use `NEXT_PUBLIC_GEMINI_API_KEY` or separate client keys
 
 ## Architecture: Live-First Hybrid
 
@@ -47,6 +52,7 @@ Camera.tsx ──► /api/tiles ──► Gemini 3 Flash ──► tiles.ts ─�
 | `src/lib/gemini-live.ts` | WebSocket client for Gemini 2.5 Live API |
 | `src/app/page.tsx` | State orchestration, Live API init, main layout |
 | `src/app/api/tiles/route.ts` | REST fallback: Gemini 3 → ContextClassification |
+| `next.config.ts` | Exposes GEMINI_API_KEY to client via env block |
 | `src/lib/tiles.ts` | Affirmation logic + Grid generation engine |
 | `src/components/Camera.tsx` | Dual-mode: WebSocket stream or REST POST |
 | `src/components/ContextLockIndicator.tsx` | Shows locked context + connection mode |

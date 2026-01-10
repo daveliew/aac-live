@@ -23,104 +23,113 @@ export default function Home() {
   const liveClientRef = useRef<GeminiLiveClient | null>(null);
   const [liveClient, setLiveClient] = useState<GeminiLiveClient | null>(null);
 
-  // Initialize Live API on mount (only if NEXT_PUBLIC key is set)
+  // Initialize Live API on mount - use env var directly (exposed via next.config.ts)
   useEffect(() => {
-    // Live API requires client-side key (NEXT_PUBLIC_GEMINI_API_KEY)
-    // If not set, use REST mode which uses server-side GEMINI_API_KEY
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    const initializeLiveAPI = async () => {
+      try {
+        const apiKey = process.env.GEMINI_API_KEY;
 
-    if (!apiKey) {
-      console.log('Using REST mode (server-side GEMINI_API_KEY)');
-      dispatch({ type: 'SET_CONNECTION_MODE', payload: 'rest' });
-      return;
-    }
-
-    console.log('Live API key found, attempting WebSocket connection...');
-
-    const client = new GeminiLiveClient({
-      apiKey,
-      onConnect: () => {
-        console.log('Live API connected');
-        dispatch({ type: 'LIVE_SESSION_START' });
-        setError(null);
-      },
-      onContext: (context: ContextClassification) => {
-        console.log('Live context:', context);
-
-        // If locked, update background context silently
-        if (state.contextLocked) {
-          dispatch({
-            type: 'BACKGROUND_UPDATE',
-            payload: {
-              context: context.primaryContext as ContextType,
-              confidence: context.confidenceScore
-            }
-          });
-        } else {
-          // Not locked - debounce context changes
-          dispatch({
-            type: 'DEBOUNCE_CONTEXT',
-            payload: context.primaryContext as ContextType
-          });
+        if (!apiKey) {
+          console.log('GEMINI_API_KEY not configured, using REST mode');
+          dispatch({ type: 'SET_CONNECTION_MODE', payload: 'rest' });
+          return;
         }
 
-        // Send debug data
-        sendDebugData({
-          type: 'context',
-          currentContext: context.primaryContext,
-          confidence: context.confidenceScore,
-          entities: context.entitiesDetected
-        });
-      },
-      onTiles: (tiles: LiveTile[]) => {
-        console.log('Live tiles:', tiles);
-        dispatch({
-          type: 'LIVE_TILES',
-          payload: tiles.map(t => ({
-            id: t.id,
-            text: t.label,
-            tts: t.tts,
-            emoji: t.emoji,
-            isCore: false,
-            isSuggested: true,
-            relevanceScore: t.relevanceScore
-          }))
+        console.log('Live API key found, attempting WebSocket connection...');
+
+        const client = new GeminiLiveClient({
+          apiKey,
+          onConnect: () => {
+            console.log('Live API connected');
+            dispatch({ type: 'LIVE_SESSION_START' });
+            setError(null);
+          },
+          onContext: (context: ContextClassification) => {
+            console.log('Live context:', context);
+
+            // If locked, update background context silently
+            if (state.contextLocked) {
+              dispatch({
+                type: 'BACKGROUND_UPDATE',
+                payload: {
+                  context: context.primaryContext as ContextType,
+                  confidence: context.confidenceScore
+                }
+              });
+            } else {
+              // Not locked - debounce context changes
+              dispatch({
+                type: 'DEBOUNCE_CONTEXT',
+                payload: context.primaryContext as ContextType
+              });
+            }
+
+            // Send debug data
+            sendDebugData({
+              type: 'context',
+              currentContext: context.primaryContext,
+              confidence: context.confidenceScore,
+              entities: context.entitiesDetected
+            });
+          },
+          onTiles: (tiles: LiveTile[]) => {
+            console.log('Live tiles:', tiles);
+            dispatch({
+              type: 'LIVE_TILES',
+              payload: tiles.map(t => ({
+                id: t.id,
+                text: t.label,
+                tts: t.tts,
+                emoji: t.emoji,
+                isCore: false,
+                isSuggested: true,
+                relevanceScore: t.relevanceScore
+              }))
+            });
+
+            sendDebugData({ type: 'tiles', tileCount: tiles.length });
+          },
+          onAudio: (audioData: ArrayBuffer) => {
+            // Play native audio from Gemini
+            playAudio(audioData);
+          },
+          onError: (error: Error) => {
+            console.error('Live API error:', error);
+            setError('Live API error, switching to REST mode');
+            dispatch({ type: 'SET_CONNECTION_MODE', payload: 'rest' });
+            sendDebugData({ type: 'error', message: error.message });
+          },
+          onDisconnect: () => {
+            console.log('Live API disconnected');
+            dispatch({ type: 'LIVE_SESSION_END' });
+            sendDebugData({ type: 'connection', connectionMode: 'disconnected' });
+          },
+          onSessionExpiring: () => {
+            console.log('Live session expiring, reconnecting...');
+            sendDebugData({ type: 'connection', message: 'Session expiring, reconnecting' });
+          }
         });
 
-        sendDebugData({ type: 'tiles', tileCount: tiles.length });
-      },
-      onAudio: (audioData: ArrayBuffer) => {
-        // Play native audio from Gemini
-        playAudio(audioData);
-      },
-      onError: (error: Error) => {
-        console.error('Live API error:', error);
-        setError('Live API error, switching to REST mode');
+        liveClientRef.current = client;
+        setLiveClient(client);
+
+        // Connect to Live API
+        client.connect().catch(err => {
+          console.error('Failed to connect to Live API:', err);
+          dispatch({ type: 'SET_CONNECTION_MODE', payload: 'rest' });
+        });
+      } catch (err) {
+        console.error('Failed to initialize Live API:', err);
         dispatch({ type: 'SET_CONNECTION_MODE', payload: 'rest' });
-        sendDebugData({ type: 'error', message: error.message });
-      },
-      onDisconnect: () => {
-        console.log('Live API disconnected');
-        dispatch({ type: 'LIVE_SESSION_END' });
-        sendDebugData({ type: 'connection', connectionMode: 'disconnected' });
-      },
-      onSessionExpiring: () => {
-        console.log('Live session expiring, reconnecting...');
-        sendDebugData({ type: 'connection', message: 'Session expiring, reconnecting' });
       }
-    });
+    };
 
-    liveClientRef.current = client;
-    setLiveClient(client);
-
-    // Connect to Live API
-    client.connect().catch(err => {
-      console.error('Failed to connect to Live API:', err);
-      dispatch({ type: 'SET_CONNECTION_MODE', payload: 'rest' });
-    });
+    initializeLiveAPI();
 
     return () => {
-      client.disconnect();
+      if (liveClientRef.current) {
+        liveClientRef.current.disconnect();
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
