@@ -175,12 +175,12 @@ export class GeminiLiveClient {
   private sendSetupMessage(): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
-    // Test: AUDIO + systemInstruction (no TEXT)
+    // Request both AUDIO (native TTS) and TEXT (JSON context/tiles)
     const setupMessage = {
       setup: {
         model: `models/${this.config.model}`,
         generationConfig: {
-          responseModalities: ['AUDIO']
+          responseModalities: ['AUDIO', 'TEXT']
         },
         systemInstruction: {
           parts: [{ text: this.config.systemPrompt }]
@@ -264,6 +264,8 @@ export class GeminiLiveClient {
 
   sendFrame(base64Image: string): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+    console.log('[GeminiLive] Sending frame:', base64Image.length, 'bytes');
 
     const message = {
       realtime_input: {
