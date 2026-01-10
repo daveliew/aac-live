@@ -9,6 +9,7 @@ import ContextPrompt from '@/components/ContextPrompt';
 import ShiftAlertModal from '@/components/ShiftAlertModal';
 import { useAACState, APIResponse } from '@/hooks/useAACState';
 import { usePlaces } from '@/hooks/usePlaces';
+import { useAudioCapture } from '@/hooks/useAudioCapture';
 import { ContextType } from '@/lib/tiles';
 import { GeminiLiveClient, ContextClassification, LiveTile } from '@/lib/gemini-live';
 import LocationPicker from '@/components/LocationPicker';
@@ -26,6 +27,19 @@ export default function Home() {
   // Live API client
   const liveClientRef = useRef<GeminiLiveClient | null>(null);
   const [liveClient, setLiveClient] = useState<GeminiLiveClient | null>(null);
+
+  // Audio chunk handler - sends microphone audio to Live API
+  const handleAudioChunk = useCallback((pcmData: ArrayBuffer) => {
+    if (liveClientRef.current?.isConnected()) {
+      liveClientRef.current.sendAudio(pcmData);
+    }
+  }, []);
+
+  // Audio capture - auto-starts when Live session is active
+  useAudioCapture({
+    onAudioChunk: handleAudioChunk,
+    enabled: state.liveSessionActive
+  });
 
   // HYBRID MODE: REST for classification (stable), Live API for TTS (wow factor)
   const USE_REST_FOR_CLASSIFICATION = true;

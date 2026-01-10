@@ -50,29 +50,51 @@ const SESSION_LIMIT_MS = 2 * 60 * 1000; // 2 minutes for audio+video
 const RECONNECT_BUFFER_MS = 10 * 1000; // Reconnect 10s before expiry
 
 const BASE_SYSTEM_PROMPT = `You are an AAC assistant for a non-verbal child.
-Analyze the video stream and generate communication tiles.
+You receive continuous VIDEO and AUDIO from the child's environment.
 
-For each frame, respond with a JSON object:
+## SOCIAL CUE DETECTION (Priority)
+
+Watch for people interacting with the child and respond with helpful tiles:
+
+**AUDIO CUES:**
+- Direct questions: "What do you want?", "Are you hungry?", "How do you feel?"
+- Offers: "Want some?", "Do you like this?"
+- Instructions: "Say please", "Tell me what you need"
+
+**VISUAL CUES:**
+- Questioning expressions (raised eyebrows, head tilt)
+- Offering gestures (holding item toward child)
+- Expectant waiting (eye contact, paused movement)
+- Pointing at options (menu, objects, choices)
+
+**COMBINED SIGNALS:**
+When audio AND visual cues align, prioritize tiles that directly answer/respond.
+
+## RESPONSE FORMAT
+
+For each frame, respond with JSON:
 {
   "context": {
-    "primaryContext": "playground|restaurant_counter|classroom|home_kitchen|store_checkout|unknown",
+    "primaryContext": "restaurant_counter|playground|classroom|home_kitchen|store_checkout|unknown",
     "confidenceScore": 0.0-1.0,
     "secondaryContexts": [],
-    "entitiesDetected": ["person", "swing", "food"],
-    "situationInference": "Child looking at playground equipment"
+    "entitiesDetected": ["person", "menu", "cup"],
+    "socialCue": "question_detected|offer_detected|waiting|null",
+    "situationInference": "Parent asking what child wants to drink"
   },
   "tiles": [
-    { "id": "tile_1", "label": "Push me!", "tts": "Can you push me please?", "emoji": "🙋", "relevanceScore": 95 },
-    { "id": "tile_2", "label": "My turn", "tts": "I want a turn", "emoji": "🔄", "relevanceScore": 90 }
+    { "id": "tile_1", "label": "Yes please", "tts": "Yes please!", "emoji": "👍", "relevanceScore": 95 },
+    { "id": "tile_2", "label": "No thanks", "tts": "No thank you", "emoji": "🙅", "relevanceScore": 90 }
   ]
 }
 
-Guidelines:
-- Generate 3-6 tiles per frame
-- Use "I" statements (e.g., "I want", "I feel")
-- Keep tile labels short (1-3 words)
-- Include contextually relevant actions
-- Score relevance 0-100 based on visual context`;
+## TILE GUIDELINES
+- When social cue detected: Prioritize RESPONSE tiles (answers, acknowledgments)
+- Otherwise: Show CONTEXTUAL tiles (requests, actions for current scene)
+- Always use "I" statements: "I want", "I feel", "I need"
+- Keep labels short: 1-3 words
+- Generate 3-6 tiles per response
+- Score relevance 0-100 based on context + social cues`;
 
 /**
  * Build system prompt with optional location context
@@ -248,6 +270,33 @@ export class GeminiLiveClient {
         media_chunks: [{
           mime_type: 'image/jpeg',
           data: base64Image
+        }]
+      }
+    };
+
+    this.ws.send(JSON.stringify(message));
+  }
+
+  /**
+   * Send audio chunk to Gemini Live API
+   * @param pcmData - Raw PCM audio: 16kHz, 16-bit signed, mono
+   */
+  sendAudio(pcmData: ArrayBuffer): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+    // Convert ArrayBuffer to base64
+    const bytes = new Uint8Array(pcmData);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64Audio = btoa(binary);
+
+    const message = {
+      realtime_input: {
+        media_chunks: [{
+          mime_type: 'audio/pcm;rate=16000',
+          data: base64Audio
         }]
       }
     };
