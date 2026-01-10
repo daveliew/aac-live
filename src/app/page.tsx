@@ -53,8 +53,8 @@ export default function Home() {
   });
 
   // Live API toggle - can be switched during demo
-  // Default: true (try Live API first, fallback to REST on error)
-  const [useLiveAPI, setUseLiveAPI] = useState(true);
+  // Default: false (Live API has 1007 errors, use REST mode)
+  const [useLiveAPI, setUseLiveAPI] = useState(false);
 
   // Initialize mode on mount
   useEffect(() => {
