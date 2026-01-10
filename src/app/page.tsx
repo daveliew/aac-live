@@ -25,10 +25,20 @@ export default function Home() {
   const liveClientRef = useRef<GeminiLiveClient | null>(null);
   const [liveClient, setLiveClient] = useState<GeminiLiveClient | null>(null);
 
+  // DEMO MODE: Force REST API for reliability (Live API disabled)
+  const FORCE_REST_MODE = true;
+
   // Initialize Live API on mount - NEXT_PUBLIC_ mapped from GEMINI_API_KEY via next.config.ts
   useEffect(() => {
     const initializeLiveAPI = async () => {
       try {
+        // Force REST mode for demo reliability
+        if (FORCE_REST_MODE) {
+          console.log('Demo mode: Using REST API for reliability');
+          dispatch({ type: 'SET_CONNECTION_MODE', payload: 'rest' });
+          return;
+        }
+
         // next.config.ts maps GEMINI_API_KEY -> NEXT_PUBLIC_GEMINI_API_KEY for client access
         const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
