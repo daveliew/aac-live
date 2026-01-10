@@ -9,6 +9,7 @@ interface TileGridProps {
   tiles: DisplayTile[];
   isLoading?: boolean;
   onTileSpeak?: (text: string) => void;
+  onNativeTTS?: (text: string) => void;  // Gemini Live API native voice
   focusedEntity?: string | null;
 }
 
@@ -18,11 +19,16 @@ function getMatchingTileIds(entity: string): string[] {
   return ENTITY_TILE_MAP[normalized] || [];
 }
 
-export default function TileGrid({ tiles, isLoading, onTileSpeak, focusedEntity }: TileGridProps) {
+export default function TileGrid({ tiles, isLoading, onTileSpeak, onNativeTTS, focusedEntity }: TileGridProps) {
   const handleTileClick = (tile: DisplayTile) => {
     const textToSpeak = tile.tts || tile.text;
     if (textToSpeak) {
-      speak(textToSpeak);
+      // Try native Gemini TTS first, fallback to browser TTS
+      if (onNativeTTS) {
+        onNativeTTS(textToSpeak);
+      } else {
+        speak(textToSpeak);
+      }
       onTileSpeak?.(textToSpeak);
     }
   };

@@ -112,9 +112,22 @@ export function usePlaces(location: { lat: number; lng: number } | null) {
     return null;
   }, [state.nearestPlace]);
 
+  // Force refetch with current location
+  const refetch = useCallback(() => {
+    if (location) {
+      fetchPlaces(location.lat, location.lng);
+    }
+  }, [location, fetchPlaces]);
+
+  // Refetch with new coordinates (for GPS re-fetch scenarios)
+  const refetchWithCoords = useCallback((lat: number, lng: number) => {
+    fetchPlaces(lat, lng);
+  }, [fetchPlaces]);
+
   return {
     ...state,
-    refetch: location ? () => fetchPlaces(location.lat, location.lng) : undefined,
+    refetch,
+    refetchWithCoords,
     getContextFromPlace,
   };
 }

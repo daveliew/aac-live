@@ -4,41 +4,40 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Camera from '@/components/Camera';
 import TileGrid from '@/components/TileGrid';
 import EntityChips from '@/components/EntityChips';
-import ContextPrompt from '@/components/ContextPrompt';
 import ContextNotification from '@/components/ContextNotification';
+import ContextPrompt from '@/components/ContextPrompt';
 import ShiftAlertModal from '@/components/ShiftAlertModal';
 import { useAACState, APIResponse } from '@/hooks/useAACState';
 import { usePlaces } from '@/hooks/usePlaces';
 import { ContextType } from '@/lib/tiles';
 import { GeminiLiveClient, ContextClassification, LiveTile } from '@/lib/gemini-live';
+import LocationPicker from '@/components/LocationPicker';
 
 export default function Home() {
   const { state, dispatch, displayTiles, applyContextIfReady } = useAACState();
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [lastSpoken, setLastSpoken] = useState<string | null>(null);
-  const [showMultiChoice, setShowMultiChoice] = useState(false);
   const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
   const lastCaptureRef = useRef<number>(0);
 
   // Places API for location names (e.g., "McDonald's")
-  const { nearestPlace } = usePlaces(location);
+  const { nearestPlace, refetch: refetchPlaces, refetchWithCoords } = usePlaces(location);
 
   // Live API client
   const liveClientRef = useRef<GeminiLiveClient | null>(null);
   const [liveClient, setLiveClient] = useState<GeminiLiveClient | null>(null);
 
-  // DEMO MODE: Force REST API for reliability (Live API disabled)
-  const FORCE_REST_MODE = true;
+  // HYBRID MODE: REST for classification (stable), Live API for TTS (wow factor)
+  const USE_REST_FOR_CLASSIFICATION = true;
 
-  // Initialize Live API on mount - NEXT_PUBLIC_ mapped from GEMINI_API_KEY via next.config.ts
+  // Initialize Live API on mount - used for native TTS even when REST handles classification
   useEffect(() => {
     const initializeLiveAPI = async () => {
       try {
-        // Force REST mode for demo reliability
-        if (FORCE_REST_MODE) {
-          console.log('Demo mode: Using REST API for reliability');
+        // Set REST mode for classification reliability
+        if (USE_REST_FOR_CLASSIFICATION) {
+          console.log('Hybrid mode: REST for classification, Live API for TTS');
           dispatch({ type: 'SET_CONNECTION_MODE', payload: 'rest' });
-          return;
         }
 
         // next.config.ts maps GEMINI_API_KEY -> NEXT_PUBLIC_GEMINI_API_KEY for client access
@@ -179,6 +178,79 @@ export default function Home() {
     }
   }, [nearestPlace, dispatch]);
 
+  // Helper: Extract area name from address
+  const extractAreaName = useCallback((address: string | undefined): string | null => {
+    if (!address) return null;
+    const parts = address.split(',').map(p => p.trim());
+    for (const part of parts) {
+      if (part.startsWith('#') || part.startsWith('Singapore') || /^\d/.test(part)) continue;
+      if (part.length > 3) return part;
+    }
+    return null;
+  }, []);
+
+  // Auto-lock session location on first confident detection
+  useEffect(() => {
+    // Only auto-lock if no session location yet
+    if (state.sessionLocation) return;
+
+    // Need a confident context detection (≥0.7)
+    const classification = state.context.classification;
+    if (!classification || classification.confidenceScore < 0.7) return;
+
+    // Auto-lock with current context
+    const context = classification.primaryContext as ContextType;
+    dispatch({
+      type: 'SET_SESSION_LOCATION',
+      payload: {
+        placeName: nearestPlace?.name || null,
+        areaName: extractAreaName(nearestPlace?.address),
+        context
+      }
+    });
+  }, [state.sessionLocation, state.context.classification, nearestPlace, extractAreaName, dispatch]);
+
+  // Handle GPS re-fetch when major shift detected
+  useEffect(() => {
+    if (!state.majorShiftDetected || !state.pendingShiftContext) return;
+
+    // Re-fetch GPS coordinates
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const newLat = pos.coords.latitude;
+          const newLng = pos.coords.longitude;
+          setLocation({ lat: newLat, lng: newLng });
+          refetchWithCoords(newLat, newLng);
+
+          // Auto-switch to new context
+          dispatch({
+            type: 'SET_SESSION_LOCATION',
+            payload: {
+              placeName: null, // Will be updated when Places API returns
+              areaName: null,
+              context: state.pendingShiftContext!
+            }
+          });
+          dispatch({ type: 'RESET_SHIFT_COUNTER' });
+        },
+        () => {
+          // GPS failed, just switch context without place info
+          dispatch({
+            type: 'SET_SESSION_LOCATION',
+            payload: {
+              placeName: null,
+              areaName: null,
+              context: state.pendingShiftContext!
+            }
+          });
+          dispatch({ type: 'RESET_SHIFT_COUNTER' });
+        },
+        { enableHighAccuracy: true }
+      );
+    }
+  }, [state.majorShiftDetected, state.pendingShiftContext, refetchWithCoords, dispatch]);
+
   // Handle frame capture - REST API fallback
   const handleCapture = useCallback(async (base64Image: string) => {
     if (state.connectionMode === 'live' && liveClient?.isConnected()) {
@@ -204,16 +276,21 @@ export default function Home() {
 
       const data: APIResponse = await response.json();
 
-      if (state.contextLocked) {
+      // If session location is set, check for major shifts
+      if (state.sessionLocation) {
         dispatch({
-          type: 'BACKGROUND_UPDATE',
+          type: 'CHECK_SHIFT',
           payload: {
             context: data.classification.primaryContext as ContextType,
             confidence: data.classification.confidenceScore
           }
         });
+        // Still process entities even when locked
+        if (data.classification.entitiesDetected) {
+          dispatch({ type: 'SET_ENTITIES', payload: data.classification.entitiesDetected });
+        }
       } else {
-        // Use API_RESPONSE action which handles feelings mode properly
+        // No session location yet - use API_RESPONSE which handles feelings mode
         dispatch({ type: 'API_RESPONSE', payload: data });
       }
     } catch (err) {
@@ -246,25 +323,22 @@ export default function Home() {
     dispatch({ type: 'DISMISS_SHIFT_ALERT' });
   }, [dispatch]);
 
-  // Context prompt handlers
-  const handleConfirmContext = useCallback((context: ContextType) => {
-    dispatch({ type: 'AFFIRM_CONTEXT', payload: context });
-    setShowMultiChoice(false);
-  }, [dispatch]);
-
-  const handleDismissPrompt = useCallback(() => {
-    dispatch({ type: 'DISMISS_AFFIRMATION' });
-    setShowMultiChoice(false);
-  }, [dispatch]);
-
-  const handleShowAlternatives = useCallback(() => {
-    setShowMultiChoice(true);
-  }, []);
-
   // Entity focus handler
   const handleEntityFocus = useCallback((entity: string | null) => {
     dispatch({ type: 'FOCUS_ENTITY', payload: entity });
   }, [dispatch]);
+
+  // Native TTS handler - uses Gemini Live API for natural voice
+  const handleNativeTTS = useCallback((text: string) => {
+    if (liveClient?.isConnected()) {
+      console.log('[NativeTTS] Requesting speech:', text);
+      liveClient.requestTTS(text);
+    } else {
+      // Fallback to browser TTS if Live API not connected
+      console.log('[NativeTTS] Live API not connected, using browser TTS');
+      import('@/lib/tts').then(({ speak }) => speak(text));
+    }
+  }, [liveClient]);
 
   // Audio playback for native Gemini TTS (raw PCM 24kHz 16-bit)
   const playAudio = (audioData: ArrayBuffer) => {
@@ -304,9 +378,11 @@ export default function Home() {
   // Status indicator - simplified, child-friendly
   const statusColor = state.connectionMode === 'live' && state.liveSessionActive
     ? 'bg-green-500'
-    : 'bg-yellow-500';
+    : state.sessionLocation
+      ? 'bg-green-500'  // Green when session locked
+      : 'bg-yellow-500'; // Yellow when scanning
 
-  // Context badge - shows what context is active
+  // Context badge - shows what context is active (STABLE - uses session location)
   const contextEmojis: Record<string, string> = {
     restaurant_counter: '🍟',
     restaurant_table: '🍽️',
@@ -319,71 +395,55 @@ export default function Home() {
     unknown: '🪞',  // Mirror = selfie/feelings mode
   };
 
-  const activeContext = state.contextLocked ? state.lockedContext : state.context.current;
+  // Use session location for stable badge (no flicker!)
+  const sessionContext = state.sessionLocation?.context;
+  const isFeelingsMode = sessionContext === 'unknown';
 
-  // Special handling for feelings mode (selfie/unknown)
-  const isFeelingsMode = activeContext === 'unknown';
-
-  // Build context badge with place name if available
-  const contextEmoji = activeContext ? (contextEmojis[activeContext] || '📍') : '📍';
-  const contextLabel = activeContext
-    ? activeContext.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-    : 'Scanning...';
-
-  // Cross-check: Only show place name if GPS context matches visual context
-  // This prevents showing "gyg" (restaurant) when camera sees a dev space
-  const gpsContext = nearestPlace ? (() => {
-    const typeMap: Record<string, string> = {
-      restaurant: 'restaurant', fast_food_restaurant: 'restaurant',
-      cafe: 'restaurant', food: 'restaurant',
-      playground: 'playground', park: 'playground',
-      school: 'classroom', hospital: 'medical', doctor: 'medical',
-      store: 'store', supermarket: 'store', grocery_store: 'store',
-    };
-    for (const t of nearestPlace.types) {
-      if (typeMap[t]) return typeMap[t];
-    }
-    return null;
-  })() : null;
-
-  // Only trust place name if GPS and vision agree (or no visual context yet)
-  const contextsMatch = !activeContext || !gpsContext ||
-    activeContext.includes(gpsContext) || gpsContext.includes(activeContext.split('_')[0]);
-  const showPlaceName = state.placeName && contextsMatch;
-
-  // Extract broader location from address (e.g., "Mapletree Business City" from full address)
-  const extractAreaName = (address: string | undefined): string | null => {
-    if (!address) return null;
-    // Singapore addresses often have area names after unit numbers
-    // e.g., "10 Pasir Panjang Road, #01-01 Mapletree Business City, Singapore 117438"
-    const parts = address.split(',').map(p => p.trim());
-    // Look for recognizable area/building names (skip unit numbers and postcodes)
-    for (const part of parts) {
-      // Skip if it's a unit number (#xx-xx) or postcode (Singapore XXXXXX) or street number
-      if (part.startsWith('#') || part.startsWith('Singapore') || /^\d/.test(part)) continue;
-      // Return first meaningful part (usually building/area name)
-      if (part.length > 3) return part;
-    }
-    return null;
+  // Format context label
+  const formatContextLabel = (ctx: ContextType | null | undefined): string => {
+    if (!ctx) return 'Scanning...';
+    return ctx.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   };
 
-  const areaName = extractAreaName(nearestPlace?.address);
+  // Build stable badge from session location
+  const placeBadge = (() => {
+    // No session location yet - show scanning
+    if (!state.sessionLocation) {
+      return { emoji: '📍', primary: 'Scanning...', secondary: null };
+    }
 
-  // Show place name if contexts match, area name if available, otherwise visual context
-  const placeBadge = isFeelingsMode
-    ? { emoji: '🪞', primary: 'How are you feeling?', secondary: null }
-    : showPlaceName
-      ? { emoji: contextEmoji, primary: state.placeName, secondary: contextLabel }
-      : areaName
-        ? { emoji: '📍', primary: areaName, secondary: contextLabel }
-        : { emoji: contextEmoji, primary: contextLabel, secondary: null };
+    // Feelings mode (selfie detected)
+    if (isFeelingsMode) {
+      return { emoji: '🪞', primary: 'How are you feeling?', secondary: null };
+    }
 
-  // Determine prompt mode and options
-  const affirmation = state.context.affirmation;
-  const shouldShowPrompt = state.showAffirmationUI && affirmation?.uiOptions;
-  const promptMode = showMultiChoice || affirmation?.uiOptions?.type === 'multi_choice'
-    ? 'multi_choice'
-    : 'binary';
+    const emoji = sessionContext ? (contextEmojis[sessionContext] || '📍') : '📍';
+    const contextLabel = formatContextLabel(sessionContext);
+
+    // Show place name if available, otherwise area name, otherwise just context
+    if (state.sessionLocation.placeName) {
+      return { emoji, primary: state.sessionLocation.placeName, secondary: contextLabel };
+    }
+    if (state.sessionLocation.areaName) {
+      return { emoji: '📍', primary: state.sessionLocation.areaName, secondary: contextLabel };
+    }
+    return { emoji, primary: contextLabel, secondary: null };
+  })();
+
+  // Handler for tapping the badge
+  const handleBadgeTap = useCallback(() => {
+    dispatch({ type: 'SHOW_LOCATION_PICKER' });
+  }, [dispatch]);
+
+  // Handler for selecting a location from picker
+  const handleLocationSelect = useCallback((context: ContextType) => {
+    dispatch({ type: 'SELECT_LOCATION', payload: context });
+  }, [dispatch]);
+
+  // Handler for closing location picker
+  const handleLocationPickerClose = useCallback(() => {
+    dispatch({ type: 'HIDE_LOCATION_PICKER' });
+  }, [dispatch]);
 
   return (
     <main className="relative h-screen overflow-hidden bg-black">
@@ -398,18 +458,22 @@ export default function Home() {
 
       {/* Overlay content */}
       <div className="relative z-10 h-full flex flex-col pointer-events-none">
-        {/* Header with place/context badge */}
+        {/* Header with place/context badge (tappable to change location) */}
         <header className="p-4 pointer-events-auto flex items-center justify-between">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-black/50 backdrop-blur-md rounded-xl">
+          <button
+            onClick={handleBadgeTap}
+            className="flex items-center gap-2 px-3 py-1.5 bg-black/50 backdrop-blur-md rounded-xl active:scale-95 transition-transform"
+          >
             <span className="text-2xl">{placeBadge.emoji}</span>
-            <div className="flex flex-col">
+            <div className="flex flex-col items-start">
               <span className="text-white font-semibold text-sm leading-tight">{placeBadge.primary}</span>
               {placeBadge.secondary && (
                 <span className="text-white/60 text-xs leading-tight">{placeBadge.secondary}</span>
               )}
             </div>
             <div className={`w-2 h-2 rounded-full ${statusColor} ml-1`} />
-          </div>
+            <span className="text-white/40 text-xs ml-0.5">▼</span>
+          </button>
           <div className="flex items-center gap-3">
             {/* Camera flip - mobile only */}
             <button
@@ -447,6 +511,7 @@ export default function Home() {
             tiles={displayTiles}
             isLoading={state.isLoading}
             onTileSpeak={setLastSpoken}
+            onNativeTTS={handleNativeTTS}
             focusedEntity={state.focusedEntity}
           />
         </div>
@@ -468,17 +533,12 @@ export default function Home() {
         onStay={handleStayInContext}
       />
 
-      {/* Context confirmation prompt */}
-      {shouldShowPrompt && affirmation?.uiOptions && (
-        <ContextPrompt
-          mode={promptMode}
-          primaryContext={state.context.current || undefined}
-          placeName={state.placeName || undefined}
-          prompt={affirmation.uiOptions.prompt}
-          options={affirmation.uiOptions.options}
-          onConfirm={handleConfirmContext}
-          onDismiss={handleDismissPrompt}
-          onShowAlternatives={handleShowAlternatives}
+      {/* Location picker (manual override) */}
+      {state.showLocationPicker && (
+        <LocationPicker
+          currentContext={state.sessionLocation?.context || null}
+          onSelect={handleLocationSelect}
+          onClose={handleLocationPickerClose}
         />
       )}
     </main>
