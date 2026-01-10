@@ -21,6 +21,23 @@ import {
 const CONTEXT_CHANGE_THRESHOLD = 1;  // Immediate: 1 frame for fast response
 const DEBOUNCE_INTERVAL_MS = 100;    // Aggressive: 100ms for near-instant updates
 
+// Session location shift detection
+const SHIFT_THRESHOLD = 3;  // 3 consecutive frames of new category to trigger shift
+
+// Session location state
+export interface SessionLocation {
+    placeName: string | null;      // "McDonald's"
+    areaName: string | null;       // "Mapletree Business City"
+    context: ContextType | null;   // "restaurant_counter"
+    lockedAt: Date | null;
+}
+
+// Helper to get category from context (e.g., "restaurant" from "restaurant_counter")
+function getContextCategory(context: ContextType | null): string | null {
+    if (!context) return null;
+    return context.split('_')[0];
+}
+
 // Context state with history for debouncing
 interface ContextState {
     current: ContextType | null;
@@ -56,6 +73,12 @@ export interface AACState {
 
     // Place name from GPS (e.g., "McDonald's")
     placeName: string | null;
+
+    // Session location (stable, locked for session)
+    sessionLocation: SessionLocation | null;
+    showLocationPicker: boolean;
+    shiftCounter: number;
+    pendingShiftContext: ContextType | null;
 
     // Entity detection (objects in view)
     detectedEntities: string[];
@@ -103,7 +126,15 @@ export type AACAction =
     | { type: 'SET_PLACE_NAME'; payload: string | null }
     // Entity detection actions
     | { type: 'SET_ENTITIES'; payload: string[] }
-    | { type: 'FOCUS_ENTITY'; payload: string | null };
+    | { type: 'FOCUS_ENTITY'; payload: string | null }
+    // Session location actions
+    | { type: 'SET_SESSION_LOCATION'; payload: { placeName: string | null; areaName: string | null; context: ContextType } }
+    | { type: 'SHOW_LOCATION_PICKER' }
+    | { type: 'HIDE_LOCATION_PICKER' }
+    | { type: 'SELECT_LOCATION'; payload: ContextType }
+    | { type: 'CHECK_SHIFT'; payload: { context: ContextType; confidence: number } }
+    | { type: 'TRIGGER_SHIFT_REFETCH' }
+    | { type: 'RESET_SHIFT_COUNTER' };
 
 // Major shift threshold
 const MAJOR_SHIFT_CONFIDENCE = 0.8;
@@ -137,6 +168,12 @@ const INITIAL_STATE: AACState = {
 
     // Place name from GPS
     placeName: null,
+
+    // Session location (stable for session)
+    sessionLocation: null,
+    showLocationPicker: false,
+    shiftCounter: 0,
+    pendingShiftContext: null,
 
     // Entity detection
     detectedEntities: [],
@@ -514,6 +551,147 @@ function aacReducer(state: AACState, action: AACAction): AACState {
                 focusedEntity
             };
         }
+
+        // Session location actions
+        case 'SET_SESSION_LOCATION': {
+            const { placeName, areaName, context } = action.payload;
+
+            // Generate tiles for this context
+            const grid = generateGrid({
+                affirmedContext: context,
+                gridSize: 9
+            });
+
+            const contextTiles = grid.tiles
+                .filter(t => !t.alwaysShow)
+                .map(gridTileToDisplayTile);
+
+            return {
+                ...state,
+                sessionLocation: {
+                    placeName,
+                    areaName,
+                    context,
+                    lockedAt: new Date()
+                },
+                context: {
+                    ...state.context,
+                    current: context,
+                    confirmedAt: new Date()
+                },
+                contextTiles,
+                shiftCounter: 0,
+                pendingShiftContext: null,
+                showLocationPicker: false
+            };
+        }
+
+        case 'SHOW_LOCATION_PICKER':
+            return {
+                ...state,
+                showLocationPicker: true
+            };
+
+        case 'HIDE_LOCATION_PICKER':
+            return {
+                ...state,
+                showLocationPicker: false
+            };
+
+        case 'SELECT_LOCATION': {
+            const selectedContext = action.payload;
+
+            // Generate tiles for selected context
+            const grid = generateGrid({
+                affirmedContext: selectedContext,
+                gridSize: 9
+            });
+
+            const contextTiles = grid.tiles
+                .filter(t => !t.alwaysShow)
+                .map(gridTileToDisplayTile);
+
+            return {
+                ...state,
+                sessionLocation: {
+                    ...state.sessionLocation,
+                    placeName: state.sessionLocation?.placeName || null,
+                    areaName: state.sessionLocation?.areaName || null,
+                    context: selectedContext,
+                    lockedAt: new Date()
+                },
+                context: {
+                    ...state.context,
+                    current: selectedContext,
+                    confirmedAt: new Date()
+                },
+                contextTiles,
+                showLocationPicker: false,
+                shiftCounter: 0,
+                pendingShiftContext: null
+            };
+        }
+
+        case 'CHECK_SHIFT': {
+            const { context: incomingContext, confidence } = action.payload;
+
+            // No session location yet - nothing to check
+            if (!state.sessionLocation?.context) {
+                return state;
+            }
+
+            // Check if this is a different category
+            const currentCategory = getContextCategory(state.sessionLocation.context);
+            const incomingCategory = getContextCategory(incomingContext);
+            const isDifferentCategory = currentCategory !== incomingCategory;
+
+            // If same category or low confidence, reset counter
+            if (!isDifferentCategory || confidence < MAJOR_SHIFT_CONFIDENCE) {
+                if (state.shiftCounter > 0) {
+                    return {
+                        ...state,
+                        shiftCounter: 0,
+                        pendingShiftContext: null
+                    };
+                }
+                return state;
+            }
+
+            // Different category with high confidence - increment counter
+            const newCount = state.shiftCounter + 1;
+
+            // Threshold reached? Signal that we need to refetch
+            if (newCount >= SHIFT_THRESHOLD) {
+                return {
+                    ...state,
+                    shiftCounter: newCount,
+                    pendingShiftContext: incomingContext,
+                    majorShiftDetected: true  // Signal to trigger refetch
+                };
+            }
+
+            return {
+                ...state,
+                shiftCounter: newCount,
+                pendingShiftContext: incomingContext
+            };
+        }
+
+        case 'TRIGGER_SHIFT_REFETCH':
+            // Called after GPS/Places refetch - reset counter, keep pending context
+            return {
+                ...state,
+                shiftCounter: 0,
+                majorShiftDetected: false
+            };
+
+        case 'RESET_SHIFT_COUNTER':
+            return {
+                ...state,
+                shiftCounter: 0,
+                pendingShiftContext: null,
+                majorShiftDetected: false
+            };
 
         default:
             return state;
