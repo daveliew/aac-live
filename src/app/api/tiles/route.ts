@@ -93,8 +93,22 @@ export async function POST(request: NextRequest) {
     const affirmation = affirmContext(classification);
 
     let tiles: GridTile[] = [];
-    if (affirmation.affirmed && affirmation.finalContext) {
-      // Auto-generate grid if affirmed, passing entities for dynamic boosting
+
+    // Special case: "unknown" context = feelings mode (selfie/face detected)
+    // Always show feelings tiles immediately, no confirmation needed
+    const isFeelingsMode = classification.primaryContext === 'unknown';
+
+    if (isFeelingsMode) {
+      // Feelings mode: generate tiles for self-expression
+      const grid = generateGrid({
+        affirmedContext: 'unknown' as ContextType,
+        gridSize: 9,
+        entities: classification.entitiesDetected,
+        situationInference: classification.situationInference
+      });
+      tiles = grid.tiles;
+    } else if (affirmation.affirmed && affirmation.finalContext) {
+      // Normal mode: generate grid if affirmed
       const grid = generateGrid({
         affirmedContext: affirmation.finalContext as ContextType,
         gridSize: 9,
