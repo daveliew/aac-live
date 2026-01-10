@@ -261,16 +261,27 @@ export default function Home() {
     setShowMultiChoice(true);
   }, []);
 
-  // Audio playback for native Gemini TTS
+  // Audio playback for native Gemini TTS (raw PCM 24kHz 16-bit)
   const playAudio = (audioData: ArrayBuffer) => {
     try {
-      const audioContext = new AudioContext();
-      audioContext.decodeAudioData(audioData, (buffer) => {
-        const source = audioContext.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioContext.destination);
-        source.start();
-      });
+      // Gemini sends raw PCM audio - convert to playable format
+      const audioContext = new AudioContext({ sampleRate: 24000 });
+      const int16Array = new Int16Array(audioData);
+      const float32Array = new Float32Array(int16Array.length);
+
+      // Convert 16-bit PCM to float32 (-1 to 1)
+      for (let i = 0; i < int16Array.length; i++) {
+        float32Array[i] = int16Array[i] / 32768;
+      }
+
+      // Create audio buffer and play
+      const buffer = audioContext.createBuffer(1, float32Array.length, 24000);
+      buffer.getChannelData(0).set(float32Array);
+
+      const source = audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioContext.destination);
+      source.start();
     } catch (err) {
       console.error('Error playing audio:', err);
     }

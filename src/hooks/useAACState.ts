@@ -54,6 +54,9 @@ export interface AACState {
     backgroundConfidence: number;
     majorShiftDetected: boolean;
 
+    // Place name from GPS (e.g., "McDonald's")
+    placeName: string | null;
+
     coreTiles: DisplayTile[];
     contextTiles: DisplayTile[];
 
@@ -91,7 +94,9 @@ export type AACAction =
     | { type: 'UNLOCK_CONTEXT' }
     | { type: 'BACKGROUND_UPDATE'; payload: { context: ContextType; confidence: number } }
     | { type: 'MAJOR_SHIFT_ALERT'; payload: ContextType }
-    | { type: 'DISMISS_SHIFT_ALERT' };
+    | { type: 'DISMISS_SHIFT_ALERT' }
+    // Place name action
+    | { type: 'SET_PLACE_NAME'; payload: string | null };
 
 // Major shift threshold
 const MAJOR_SHIFT_CONFIDENCE = 0.8;
@@ -122,6 +127,9 @@ const INITIAL_STATE: AACState = {
     backgroundContext: null,
     backgroundConfidence: 0,
     majorShiftDetected: false,
+
+    // Place name from GPS
+    placeName: null,
 
     coreTiles: getCoreTiles(),
     contextTiles: [],
@@ -442,6 +450,12 @@ function aacReducer(state: AACState, action: AACAction): AACState {
             return {
                 ...state,
                 majorShiftDetected: false
+            };
+
+        case 'SET_PLACE_NAME':
+            return {
+                ...state,
+                placeName: action.payload
             };
 
         default:

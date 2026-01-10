@@ -4,11 +4,14 @@ export async function POST(request: NextRequest) {
   try {
     const { latitude, longitude } = await request.json();
 
-    // Try using the Gemini API key for Places
-    const apiKey = process.env.GEMINI_API_KEY;
+    // Use dedicated Google Places API key
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
 
     if (!apiKey) {
-      return NextResponse.json({ error: 'No API key configured' }, { status: 500 });
+      return NextResponse.json({
+        error: 'GOOGLE_PLACES_API_KEY not configured',
+        hint: 'Get a key from console.cloud.google.com with Places API enabled'
+      }, { status: 503 });
     }
 
     const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
@@ -49,10 +52,10 @@ export async function GET() {
   const testLat = 1.2966;
   const testLng = 103.7764;
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
 
   if (!apiKey) {
-    return NextResponse.json({ error: 'No API key', keyPreview: 'not set' });
+    return NextResponse.json({ error: 'GOOGLE_PLACES_API_KEY not set', keyPreview: 'not set' });
   }
 
   try {
