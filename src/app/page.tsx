@@ -212,22 +212,8 @@ export default function Home() {
           }
         });
       } else {
-        dispatch({ type: 'DEBOUNCE_CONTEXT', payload: data.classification.primaryContext as ContextType });
-
-        if (data.tiles) {
-          dispatch({
-            type: 'LIVE_TILES',
-            payload: data.tiles.map(t => ({
-              id: t.id,
-              text: t.label,
-              tts: t.tts,
-              emoji: t.emoji,
-              isCore: false,
-              isSuggested: true,
-              relevanceScore: t.relevanceScore
-            }))
-          });
-        }
+        // Use API_RESPONSE action which handles feelings mode properly
+        dispatch({ type: 'API_RESPONSE', payload: data });
       }
     } catch (err) {
       console.error('Error getting tiles:', err);
