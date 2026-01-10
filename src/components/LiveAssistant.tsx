@@ -1,101 +1,36 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { GeminiLiveClient, GeminiLiveEvent } from '@/lib/gemini-live';
-import { TileData } from '@/components/TileGrid';
 import { Mic, MicOff, Video, Info } from 'lucide-react';
 
 interface LiveAssistantProps {
-  apiKey: string;
   isLive: boolean;
-  onTilesUpdate: (tiles: TileData[]) => void;
+  status: 'idle' | 'connecting' | 'connected' | 'error';
   onLiveToggle: (isLive: boolean) => void;
 }
 
 export default function LiveAssistant({
-  apiKey,
   isLive,
-  onTilesUpdate,
+  status,
   onLiveToggle
 }: LiveAssistantProps) {
-  const [status, setStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
-  const clientRef = useRef<GeminiLiveClient | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-
-  const playAudio = useCallback(async (data: Uint8Array) => {
-    if (!audioContextRef.current) {
-      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      audioContextRef.current = new AudioContextClass({ sampleRate: 24000 });
-    }
-    
-    // Simplify for MVP: Just log that we'd play audio here. 
-    console.log('Gemini Live Audio Chunk Received:', data.length, 'bytes');
-  }, []);
-
-  const handleEvent = useCallback((event: GeminiLiveEvent) => {
-    switch (event.type) {
-      case 'open':
-        setStatus('connected');
-        break;
-      case 'tiles':
-        // Mark these as suggested
-        const suggestedTiles = event.tiles.map(t => ({ ...t, isSuggested: true }));
-        onTilesUpdate(suggestedTiles);
-        break;
-      case 'audio':
-        playAudio(event.data);
-        break;
-      case 'error':
-        setStatus('error');
-        console.error('Live Assistant Error:', event.error);
-        break;
-      case 'close':
-        setStatus('idle');
-        break;
-    }
-  }, [onTilesUpdate, playAudio]);
-
-  useEffect(() => {
-    if (isLive && !clientRef.current) {
-      const startClient = async () => {
-        setStatus('connecting');
-        clientRef.current = new GeminiLiveClient({ apiKey }, handleEvent);
-        await clientRef.current.connect();
-      };
-      startClient();
-    } else if (!isLive && clientRef.current) {
-      const stopClient = () => {
-        clientRef.current?.disconnect();
-        clientRef.current = null;
-        setStatus('idle');
-      };
-      stopClient();
-    }
-
-    return () => {
-      if (clientRef.current) {
-        clientRef.current.disconnect();
-      }
-    };
-  }, [isLive, apiKey, handleEvent]);
-
   return (
     <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 flex flex-col gap-4 shadow-2xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className={`w-3 h-3 rounded-full ${
-            status === 'connected' ? 'bg-green-500 animate-pulse' : 
-            status === 'connecting' ? 'bg-yellow-500 animate-spin' : 'bg-gray-600'
+            status === 'connected' ? 'bg-green-500 animate-pulse' :
+            status === 'connecting' ? 'bg-yellow-500 animate-spin' :
+            status === 'error' ? 'bg-red-500' : 'bg-gray-600'
           }`} />
           <h2 className="font-bold text-lg tracking-tight">Gemini Live</h2>
         </div>
-        
+
         <button
           onClick={() => onLiveToggle(!isLive)}
           className={`
             flex items-center gap-2 px-6 py-2.5 rounded-full font-bold transition-all
-            ${isLive 
-              ? 'bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30' 
+            ${isLive
+              ? 'bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30'
               : 'bg-blue-600 text-white shadow-[0_0_20px_rgba(59,130,246,0.5)] hover:bg-blue-500'
             }
           `}
@@ -119,6 +54,12 @@ export default function LiveAssistant({
       {isLive && status === 'connected' && (
         <div className="text-[10px] text-blue-400/70 text-center animate-pulse uppercase tracking-widest font-black">
           Streaming Active • Analyzing Context
+        </div>
+      )}
+
+      {status === 'error' && (
+        <div className="text-[10px] text-red-400/70 text-center uppercase tracking-widest font-black">
+          Connection Error • Try Again
         </div>
       )}
     </div>

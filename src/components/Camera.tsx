@@ -6,17 +6,18 @@ import { GeminiLiveClient } from '@/lib/gemini-live';
 interface CameraProps {
   onCapture: (base64: string) => void;
   isLive?: boolean;
+  liveClient?: GeminiLiveClient | null;
 }
 
 export default function Camera({
   onCapture,
-  isLive = false
+  isLive = false,
+  liveClient = null
 }: CameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const liveClientRef = useRef<GeminiLiveClient | null>(null);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -63,13 +64,13 @@ export default function Camera({
 
     ctx.drawImage(video, 0, 0);
     const base64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
-    
-    if (sendToLive && liveClientRef.current) {
-      liveClientRef.current.sendMediaChunk(base64);
-    } else {
+
+    if (sendToLive && liveClient) {
+      liveClient.sendMediaChunk(base64);
+    } else if (!sendToLive) {
       onCapture(base64);
     }
-  }, [isReady, onCapture]);
+  }, [isReady, onCapture, liveClient]);
 
   // Handle streaming in live mode
   useEffect(() => {

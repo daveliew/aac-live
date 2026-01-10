@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import Camera from '@/components/Camera';
 import TileGrid from '@/components/TileGrid';
 import LiveAssistant from '@/components/LiveAssistant';
@@ -8,11 +8,16 @@ import AffirmationUI from '@/components/AffirmationUI';
 import ContextNotification from '@/components/ContextNotification';
 import { useAACState, APIResponse } from '@/hooks/useAACState';
 import { ContextType, formatContext } from '@/lib/tiles';
+import { GeminiLiveClient, GeminiLiveEvent } from '@/lib/gemini-live';
 
 const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
 
 export default function Home() {
   const { state, dispatch, displayTiles, applyContextIfReady } = useAACState();
+
+  // Live client state - lifted from LiveAssistant
+  const [liveClient, setLiveClient] = useState<GeminiLiveClient | null>(null);
+  const [liveStatus, setLiveStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
 
   // Snapshot capture handler
   const handleCapture = useCallback(async (base64Image: string) => {
@@ -34,19 +39,52 @@ export default function Home() {
     }
   }, [dispatch]);
 
-  // Live mode tile updates
-  const handleLiveTilesUpdate = useCallback((newTiles: { id: number; text: string; emoji: string; isSuggested?: boolean }[]) => {
-    // Convert to DisplayTile format
-    const displayTiles = newTiles.map(t => ({
-      id: String(t.id),
-      text: t.text,
-      tts: t.text,
-      emoji: t.emoji,
-      isCore: false,
-      isSuggested: t.isSuggested
-    }));
-    dispatch({ type: 'LIVE_TILES', payload: displayTiles });
+  // Handle events from GeminiLiveClient
+  const handleLiveEvent = useCallback((event: GeminiLiveEvent) => {
+    switch (event.type) {
+      case 'open':
+        setLiveStatus('connected');
+        break;
+      case 'tiles':
+        // Convert to DisplayTile format and mark as suggested
+        const displayTiles = event.tiles.map(t => ({
+          id: String(t.id),
+          text: t.text,
+          tts: t.text,
+          emoji: t.emoji,
+          isCore: false,
+          isSuggested: true
+        }));
+        dispatch({ type: 'LIVE_TILES', payload: displayTiles });
+        break;
+      case 'audio':
+        // Audio playback (simplified for MVP)
+        console.log('Gemini Live Audio:', event.data.length, 'bytes');
+        break;
+      case 'error':
+        setLiveStatus('error');
+        console.error('Live error:', event.error);
+        break;
+      case 'close':
+        setLiveStatus('idle');
+        break;
+    }
   }, [dispatch]);
+
+  // Ref to track client for cleanup (avoids stale closure issues)
+  const liveClientRef = useRef<GeminiLiveClient | null>(null);
+
+  // Sync ref with state
+  useEffect(() => {
+    liveClientRef.current = liveClient;
+  }, [liveClient]);
+
+  // Cleanup on unmount only
+  useEffect(() => {
+    return () => {
+      liveClientRef.current?.disconnect();
+    };
+  }, []);
 
   // Apply debounced context changes in live mode
   useEffect(() => {
@@ -56,10 +94,22 @@ export default function Home() {
     }
   }, [state.context.transitionPending, state.mode, applyContextIfReady]);
 
-  // Mode toggle
-  const handleLiveToggle = useCallback((isLive: boolean) => {
-    dispatch({ type: 'SET_MODE', payload: isLive ? 'live' : 'snapshot' });
-  }, [dispatch]);
+  // Mode toggle - handles client lifecycle
+  const handleLiveToggle = useCallback((goLive: boolean) => {
+    if (goLive && !liveClient) {
+      // Start live mode
+      setLiveStatus('connecting');
+      const client = new GeminiLiveClient({ apiKey: GEMINI_API_KEY }, handleLiveEvent);
+      client.connect();
+      setLiveClient(client);
+    } else if (!goLive && liveClient) {
+      // Stop live mode
+      liveClient.disconnect();
+      setLiveClient(null);
+      setLiveStatus('idle');
+    }
+    dispatch({ type: 'SET_MODE', payload: goLive ? 'live' : 'snapshot' });
+  }, [dispatch, liveClient, handleLiveEvent]);
 
   // Affirmation handlers
   const handleAffirm = useCallback((context: ContextType) => {
@@ -130,12 +180,12 @@ export default function Home() {
             <Camera
               onCapture={handleCapture}
               isLive={state.mode === 'live'}
+              liveClient={liveClient}
             />
 
             <LiveAssistant
-              apiKey={GEMINI_API_KEY}
               isLive={state.mode === 'live'}
-              onTilesUpdate={handleLiveTilesUpdate}
+              status={liveStatus}
               onLiveToggle={handleLiveToggle}
             />
 
