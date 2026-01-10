@@ -152,6 +152,10 @@ export default function Home() {
       if (liveClientRef.current) {
         liveClientRef.current.disconnect();
       }
+      // Close AudioContext on unmount
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close();
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -267,30 +271,54 @@ export default function Home() {
   }, [liveClient]);
 
   // Audio playback for native Gemini TTS (raw PCM 24kHz 16-bit)
-  const playAudio = (audioData: ArrayBuffer) => {
+  // Reuse AudioContext and schedule chunks seamlessly
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const nextPlayTimeRef = useRef(0);
+
+  const playAudio = useCallback((audioData: ArrayBuffer) => {
     try {
-      // Gemini sends raw PCM audio - convert to playable format
-      const audioContext = new AudioContext({ sampleRate: 24000 });
-      const int16Array = new Int16Array(audioData);
-      const float32Array = new Float32Array(int16Array.length);
+      // Create AudioContext once and reuse
+      if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+        audioContextRef.current = new AudioContext({ sampleRate: 24000 });
+        nextPlayTimeRef.current = audioContextRef.current.currentTime;
+      }
+
+      const audioContext = audioContextRef.current;
+
+      // Resume if suspended (browser autoplay policy)
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
 
       // Convert 16-bit PCM to float32 (-1 to 1)
+      const int16Array = new Int16Array(audioData);
+      const float32Array = new Float32Array(int16Array.length);
       for (let i = 0; i < int16Array.length; i++) {
         float32Array[i] = int16Array[i] / 32768;
       }
 
-      // Create audio buffer and play
+      // Create audio buffer
       const buffer = audioContext.createBuffer(1, float32Array.length, 24000);
       buffer.getChannelData(0).set(float32Array);
 
+      // Schedule playback - queue chunks seamlessly
       const source = audioContext.createBufferSource();
       source.buffer = buffer;
       source.connect(audioContext.destination);
-      source.start();
+
+      // Ensure we don't schedule in the past
+      const now = audioContext.currentTime;
+      if (nextPlayTimeRef.current < now) {
+        nextPlayTimeRef.current = now;
+      }
+
+      source.start(nextPlayTimeRef.current);
+      nextPlayTimeRef.current += buffer.duration;
+
     } catch (err) {
       console.error('Error playing audio:', err);
     }
-  };
+  }, []);
 
   // Send debug data to localStorage for /debug page
   const sendDebugData = (data: Record<string, unknown>) => {

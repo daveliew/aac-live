@@ -25,28 +25,27 @@ GOOGLE_PLACES_API_KEY=your_key_here   # Optional: Place names ("McDonald's" vs "
 - `GEMINI_API_KEY` exposed to client for Live API WebSocket
 - `GOOGLE_PLACES_API_KEY` server-only (used in `/api/places` route)
 
-## Architecture: Hybrid Mode
+## Architecture: Live Mode
 
-**Current Mode**: REST for classification (stable) + Live API for TTS (wow factor)
+**Current Mode**: Full Live API for generative tiles + native TTS
 
 ```
-CLASSIFICATION (REST - reliable):
+LIVE API (WebSocket - generative):
+Camera.tsx ──► gemini-live.ts ──► Gemini 2.5 Live ──► Context + Tiles + Audio
+(1 FPS)        (WebSocket)        (streaming)         (generative)
+
+REST FALLBACK (disabled by default):
 Camera.tsx ──► /api/tiles ──► Gemini 3 Flash ──► tiles.ts ──► UI tiles
-(1 FPS)        (POST)         (vision)          (grid gen)
-
-TTS (Live API - native audio):
-Tile click ──► gemini-live.ts ──► Gemini 2.5 Live ──► Native audio playback
-               (WebSocket)        (requestTTS)
-
-LOCATION (GPS → Place Name):
-Geolocation ──► usePlaces ──► /api/places ──► Google Places ──► "McDonald's"
 ```
 
 ### Models
 | Purpose | Model | API |
 |---------|-------|-----|
-| Scene Classification | `gemini-3-flash-preview` | REST |
-| Native TTS | `gemini-2.5-flash-native-audio-preview-12-2025` | WebSocket |
+| Live Classification + Tiles | `gemini-2.5-flash-native-audio-preview-12-2025` | WebSocket |
+| REST Fallback | `gemini-3-flash-preview` | REST (disabled) |
+
+### Demo Contexts (Live API)
+`bathroom | kitchen | greeting | restaurant | playground | classroom | store | medical | unknown`
 
 ### Key Architectural Files
 | File | Purpose |

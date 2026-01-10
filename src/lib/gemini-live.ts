@@ -75,7 +75,7 @@ When audio AND visual cues align, prioritize tiles that directly answer/respond.
 For each frame, respond with JSON:
 {
   "context": {
-    "primaryContext": "restaurant_counter|playground|classroom|home_kitchen|store_checkout|unknown",
+    "primaryContext": "bathroom|kitchen|greeting|restaurant|playground|classroom|store|medical|unknown",
     "confidenceScore": 0.0-1.0,
     "secondaryContexts": [],
     "entitiesDetected": ["person", "menu", "cup"],

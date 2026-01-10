@@ -56,26 +56,22 @@ Point camera → Gemini sees context → Relevant tiles appear → One tap → C
 | Feature | What It Does | File |
 |---------|--------------|------|
 | Camera input | Captures scene at 1 FPS | `Camera.tsx` |
-| REST classification | Gemini 3 Flash → context + entities | `/api/tiles` |
+| **Live API (generative)** | Gemini 2.5 Live → context + tiles + audio | `gemini-live.ts` |
 | Tile grid | Horizontal scrollable tiles with TTS | `TileGrid.tsx` |
-| Context confirmation | "Bathroom? 👍👎" binary prompt | `ContextPrompt.tsx` |
-| Affirmation logic | 4 confidence thresholds (auto/confirm/multi/manual) | `tiles.ts` |
-| Core tiles | Yes, No, Help, More (always visible) | `tiles.ts` |
-| Context tile sets | Bathroom, Kitchen, Greeting (+ Playground, Restaurant) | `tiles.ts` |
+| Native TTS | Gemini's natural voice on tile click | `gemini-live.ts` |
 | Browser TTS | Web Speech API fallback | `tts.ts` |
-| Session location | Stable context for session | `useAACState.ts` |
-| Manual picker | Override when auto-detect fails | `LocationPicker.tsx` |
+| Camera flip | Front/back toggle for selfie mode | `page.tsx` |
 
-### NICE-TO-HAVE Features (Wow Factor)
+### NICE-TO-HAVE Features
 
-| Feature | What It Does | Could Cut? |
-|---------|--------------|------------|
-| Live API TTS | Native Gemini voice (not robotic) | Keep for demo |
-| Entity chips | "I see: Cookie, Juice" | Maybe |
-| Places API | "McDonald's" vs "Restaurant" | Yes |
-| Audio capture | Mic input to Live API | Yes |
-| Shift alert | "Scene changed" modal | Maybe |
-| Camera flip | Front/back toggle for selfie mode | Keep |
+| Feature | What It Does | Status |
+|---------|--------------|--------|
+| Entity chips | "I see: Cookie, Juice" | Implemented |
+| Places API | "McDonald's" vs "Restaurant" | Implemented |
+| Audio capture | Mic input to Live API | Implemented |
+| Shift alert | "Scene changed" modal | Implemented |
+| Context confirmation | "Bathroom? 👍👎" prompt | Implemented |
+| REST fallback | Gemini 3 Flash when WebSocket fails | Disabled |
 
 ### DEAD CODE (Remove)
 
@@ -88,54 +84,33 @@ Point camera → Gemini sees context → Relevant tiles appear → One tap → C
 
 ---
 
-## Tile Sets Needed
+## Tile Generation
 
-### ✅ Implemented
-- `playground` (8 tiles)
-- `restaurant_counter` (8 tiles)
-- `unknown` / feelings (5 tiles)
+**Tiles are GENERATIVE** - Gemini Live API creates context-appropriate tiles in real-time.
 
-### 🔴 TODO for Demo
-```typescript
-// bathroom
-{ label: "I need to go", tts: "I need to use the bathroom", emoji: "🚽" }
-{ label: "Help please", tts: "I need help please", emoji: "🙋" }
-{ label: "Wash hands", tts: "I need to wash my hands", emoji: "🧼" }
-{ label: "All done", tts: "I am all done", emoji: "✅" }
+No hardcoded tile sets needed. Point camera at bathroom → Gemini generates bathroom tiles.
 
-// home_kitchen
-{ label: "I'm hungry", tts: "I am hungry", emoji: "🍽️" }
-{ label: "Snack please", tts: "Can I have a snack please", emoji: "🍪" }
-{ label: "Juice please", tts: "Can I have some juice please", emoji: "🧃" }
-{ label: "Water please", tts: "Can I have water please", emoji: "💧" }
-
-// greeting (selfie/social mode)
-{ label: "Hello", tts: "Hello, nice to meet you", emoji: "👋" }
-{ label: "I'm happy", tts: "I am feeling happy", emoji: "😊" }
-{ label: "I'm sad", tts: "I am feeling sad", emoji: "😢" }
-{ label: "Thank you", tts: "Thank you very much", emoji: "🙏" }
-```
+### Demo Contexts (recognized by Live API)
+`bathroom | kitchen | greeting | restaurant | playground | classroom | store | medical | unknown`
 
 ---
 
 ## Architecture
 
 ```
-CLASSIFICATION (REST - stable):
-Camera (1 FPS) → /api/tiles → Gemini 3 Flash → tiles.ts → UI
+LIVE API (WebSocket - generative):
+Camera (1 FPS) → gemini-live.ts → Gemini 2.5 Live → Context + Tiles + Audio
+                  (WebSocket)      (streaming)       (generative)
 
-TTS (Live API - native audio):
-Tile click → gemini-live.ts → Gemini 2.5 Live → Audio playback
-
-FALLBACK:
-Browser TTS via Web Speech API
+FALLBACK (disabled):
+REST API → Gemini 3 Flash → hardcoded TILE_SETS
 ```
 
 ### Models
 | Purpose | Model |
 |---------|-------|
-| Scene classification | `gemini-3-flash-preview` |
-| Native TTS | `gemini-2.5-flash-native-audio-preview-12-2025` |
+| Live (classification + tiles + TTS) | `gemini-2.5-flash-native-audio-preview-12-2025` |
+| REST fallback (disabled) | `gemini-3-flash-preview` |
 
 ### Affirmation Thresholds
 | Confidence | Action |
@@ -175,7 +150,7 @@ Browser TTS via Web Speech API
 |--------|------|
 | Hook | "By the time a child finds 'I need the bathroom,' it's already too late." |
 | Demo | "One tap. I'm heard." |
-| Tech | "Gemini 3 Flash classifies the scene in under 500 milliseconds." |
+| Tech | "Gemini 2.5 Live streams context and tiles in real-time." |
 | Close | "Communication at the speed of sight." |
 
 ---
