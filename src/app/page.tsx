@@ -24,6 +24,16 @@ export default function Home() {
   // Places API for location names (e.g., "McDonald's")
   const { nearestPlace, refetch: refetchPlaces, refetchWithCoords } = usePlaces(location);
 
+  // Refs to access current values in callbacks (avoid stale closures)
+  const nearestPlaceRef = useRef(nearestPlace);
+  const sessionLocationRef = useRef(state.sessionLocation);
+  useEffect(() => {
+    nearestPlaceRef.current = nearestPlace;
+  }, [nearestPlace]);
+  useEffect(() => {
+    sessionLocationRef.current = state.sessionLocation;
+  }, [state.sessionLocation]);
+
   // Live API client
   const liveClientRef = useRef<GeminiLiveClient | null>(null);
   const [liveClient, setLiveClient] = useState<GeminiLiveClient | null>(null);
@@ -74,7 +84,18 @@ export default function Home() {
           onContext: (context: ContextClassification) => {
             console.log('Live context:', context);
 
-            if (state.contextLocked) {
+            // Set session location when first high-confidence context detected
+            if (!sessionLocationRef.current && context.confidenceScore >= 0.6) {
+              const placeName = nearestPlaceRef.current?.name || null;
+              dispatch({
+                type: 'SET_SESSION_LOCATION',
+                payload: {
+                  placeName,
+                  areaName: null,
+                  context: context.primaryContext as ContextType
+                }
+              });
+            } else if (state.contextLocked) {
               dispatch({
                 type: 'BACKGROUND_UPDATE',
                 payload: {
