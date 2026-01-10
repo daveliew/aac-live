@@ -322,11 +322,19 @@ export default function Home() {
 
   // Special handling for feelings mode (selfie/unknown)
   const isFeelingsMode = activeContext === 'unknown';
-  const contextBadge = isFeelingsMode
-    ? '🪞 How are you feeling?'
-    : activeContext
-      ? `${contextEmojis[activeContext] || '📍'} ${activeContext.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}`
-      : '📍 Scanning...';
+
+  // Build context badge with place name if available
+  const contextEmoji = activeContext ? (contextEmojis[activeContext] || '📍') : '📍';
+  const contextLabel = activeContext
+    ? activeContext.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+    : 'Scanning...';
+
+  // Show place name prominently if available, otherwise fall back to context
+  const placeBadge = isFeelingsMode
+    ? { emoji: '🪞', primary: 'How are you feeling?', secondary: null }
+    : state.placeName
+      ? { emoji: contextEmoji, primary: state.placeName, secondary: contextLabel }
+      : { emoji: contextEmoji, primary: contextLabel, secondary: null };
 
   // Determine prompt mode and options
   const affirmation = state.context.affirmation;
@@ -347,11 +355,17 @@ export default function Home() {
 
       {/* Overlay content */}
       <div className="relative z-10 h-full flex flex-col pointer-events-none">
-        {/* Minimal header with context badge */}
+        {/* Header with place/context badge */}
         <header className="p-4 pointer-events-auto flex items-center justify-between">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-sm rounded-full">
-            <div className={`w-2 h-2 rounded-full ${statusColor}`} />
-            <span className="text-white/90 text-sm font-medium">{contextBadge}</span>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-black/50 backdrop-blur-md rounded-xl">
+            <span className="text-2xl">{placeBadge.emoji}</span>
+            <div className="flex flex-col">
+              <span className="text-white font-semibold text-sm leading-tight">{placeBadge.primary}</span>
+              {placeBadge.secondary && (
+                <span className="text-white/60 text-xs leading-tight">{placeBadge.secondary}</span>
+              )}
+            </div>
+            <div className={`w-2 h-2 rounded-full ${statusColor} ml-1`} />
           </div>
           <span className="text-white text-xl font-bold drop-shadow-lg">
             Glimpse
