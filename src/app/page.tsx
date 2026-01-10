@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Camera from '@/components/Camera';
 import TileGrid from '@/components/TileGrid';
+import ContextPrompt from '@/components/ContextPrompt';
 import ContextNotification from '@/components/ContextNotification';
 import ShiftAlertModal from '@/components/ShiftAlertModal';
 import ErrorToast from '@/components/ErrorToast';
@@ -14,6 +15,7 @@ export default function Home() {
   const { state, dispatch, displayTiles, applyContextIfReady } = useAACState();
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [lastSpoken, setLastSpoken] = useState<string | null>(null);
+  const [showMultiChoice, setShowMultiChoice] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lastCaptureRef = useRef<number>(0);
 
@@ -41,7 +43,6 @@ export default function Home() {
           onConnect: () => {
             console.log('Live API connected');
             dispatch({ type: 'LIVE_SESSION_START' });
-            setError(null);
           },
           onContext: (context: ContextClassification) => {
             console.log('Live context:', context);
@@ -88,11 +89,11 @@ export default function Home() {
           onAudio: (audioData: ArrayBuffer) => {
             playAudio(audioData);
           },
-          onError: (error: Error) => {
-            console.error('Live API error:', error);
-            setError('Live API error, switching to REST mode');
+          onError: (err: Error) => {
+            console.error('Live API error:', err);
+            // Silent fallback to REST - no error shown to children
             dispatch({ type: 'SET_CONNECTION_MODE', payload: 'rest' });
-            sendDebugData({ type: 'error', message: error.message });
+            sendDebugData({ type: 'error', message: err.message });
           },
           onDisconnect: () => {
             console.log('Live API disconnected');
@@ -177,7 +178,6 @@ export default function Home() {
       if (!response.ok) throw new Error('API error');
 
       const data: APIResponse = await response.json();
-      setError(null);
 
       if (state.contextLocked) {
         dispatch({
@@ -207,7 +207,7 @@ export default function Home() {
       }
     } catch (err) {
       console.error('Error getting tiles:', err);
-      setError("Couldn't analyze scene. Retrying...");
+      // Silent fallback - no error shown to children
       dispatch({ type: 'SET_FALLBACK_TILES' });
     }
   }, [dispatch, location, state.connectionMode, state.contextLocked, liveClient]);
@@ -235,6 +235,21 @@ export default function Home() {
     dispatch({ type: 'DISMISS_SHIFT_ALERT' });
   }, [dispatch]);
 
+  // Context prompt handlers
+  const handleConfirmContext = useCallback((context: ContextType) => {
+    dispatch({ type: 'AFFIRM_CONTEXT', payload: context });
+    setShowMultiChoice(false);
+  }, [dispatch]);
+
+  const handleDismissPrompt = useCallback(() => {
+    dispatch({ type: 'DISMISS_AFFIRMATION' });
+    setShowMultiChoice(false);
+  }, [dispatch]);
+
+  const handleShowAlternatives = useCallback(() => {
+    setShowMultiChoice(true);
+  }, []);
+
   // Audio playback for native Gemini TTS
   const playAudio = (audioData: ArrayBuffer) => {
     try {
@@ -259,16 +274,35 @@ export default function Home() {
     }
   };
 
-  // Status indicator
-  const statusColor = state.connectionMode === 'live'
-    ? (state.liveSessionActive ? 'bg-green-500' : 'bg-yellow-500')
+  // Status indicator - simplified, child-friendly
+  const statusColor = state.connectionMode === 'live' && state.liveSessionActive
+    ? 'bg-green-500'
     : 'bg-yellow-500';
 
-  const statusText = state.contextLocked
-    ? 'Locked'
-    : state.context.current
-      ? 'Scanning'
-      : 'Initializing';
+  // Context badge - shows what context is active
+  const contextEmojis: Record<string, string> = {
+    restaurant_counter: '🍟',
+    restaurant_table: '🍽️',
+    playground: '🛝',
+    classroom: '📚',
+    home_kitchen: '🏠',
+    home_living: '🛋️',
+    store_checkout: '🛒',
+    medical_office: '🏥',
+    unknown: '📍',
+  };
+
+  const activeContext = state.contextLocked ? state.lockedContext : state.context.current;
+  const contextBadge = activeContext
+    ? `${contextEmojis[activeContext] || '📍'} ${activeContext.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}`
+    : '📍 Scanning...';
+
+  // Determine prompt mode and options
+  const affirmation = state.context.affirmation;
+  const shouldShowPrompt = state.showAffirmationUI && affirmation?.uiOptions;
+  const promptMode = showMultiChoice || affirmation?.uiOptions?.type === 'multi_choice'
+    ? 'multi_choice'
+    : 'binary';
 
   return (
     <main className="relative h-screen overflow-hidden bg-black">
@@ -282,11 +316,11 @@ export default function Home() {
 
       {/* Overlay content */}
       <div className="relative z-10 h-full flex flex-col pointer-events-none">
-        {/* Minimal header */}
+        {/* Minimal header with context badge */}
         <header className="p-4 pointer-events-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${statusColor} animate-pulse`} />
-            <span className="text-white/80 text-sm font-medium">{statusText}</span>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-sm rounded-full">
+            <div className={`w-2 h-2 rounded-full ${statusColor}`} />
+            <span className="text-white/90 text-sm font-medium">{contextBadge}</span>
           </div>
           <span className="text-white text-xl font-bold drop-shadow-lg">
             Glimpse
@@ -329,7 +363,18 @@ export default function Home() {
         onStay={handleStayInContext}
       />
 
-      {error && <ErrorToast message={error} onDismiss={() => setError(null)} />}
+      {/* Context confirmation prompt */}
+      {shouldShowPrompt && affirmation?.uiOptions && (
+        <ContextPrompt
+          mode={promptMode}
+          primaryContext={state.context.current || undefined}
+          prompt={affirmation.uiOptions.prompt}
+          options={affirmation.uiOptions.options}
+          onConfirm={handleConfirmContext}
+          onDismiss={handleDismissPrompt}
+          onShowAlternatives={handleShowAlternatives}
+        />
+      )}
     </main>
   );
 }
