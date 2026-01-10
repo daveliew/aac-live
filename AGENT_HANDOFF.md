@@ -15,9 +15,10 @@
 - **Deployment**: Docker + Cloud Run ready
 
 ### Next Task
-- Test end-to-end: Snapshot mode with affirmation flow
-- Test end-to-end: Live mode with debounced context updates
-- Deploy to Vercel for hackathon demo
+- [ ] **Presentation Coordination**: Craft elevator pitch and outline for Gamma deck
+- [ ] Test end-to-end: Snapshot mode with affirmation flow
+- [ ] Test end-to-end: Live mode with debounced context updates
+- [ ] Deploy to Vercel for hackathon demo
 
 ---
 
@@ -78,6 +79,7 @@ _Add ideas here. Human will approve and move to "Next Task"._
 - [ ] Audio playback from Gemini Live responses
 - [ ] Expand context tile sets (classroom, home, store, medical)
 - [ ] User preference persistence (frequent tiles)
+- [ ] Integrate Vercel AI SDK for robust JSON object generation in `classifyScene`
 
 ---
 
