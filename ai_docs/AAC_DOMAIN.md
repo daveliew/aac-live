@@ -291,9 +291,70 @@ erDiagram
 
 ---
 
+## Module 3: Entity Chips (Interactive Object Detection)
+
+### Why This Matters
+A child pointing at a swing wants swing-related tiles NOW. Entity detection happens but was invisible to the child. Entity Chips give the child control over what they want to communicate about.
+
+### How It Works
+
+```
+Camera frame → Gemini API → entitiesDetected: ["swing", "child", "slide"]
+                               ↓
+                    EntityChips component renders:
+                    ┌────────────────────────────────────┐
+                    │ I see: [🎢 Swing] [👧 Child] [🛝 Slide] │
+                    └────────────────────────────────────┘
+                               ↓ Child taps [🎢 Swing]
+                    1. Related tiles highlight (yellow glow)
+                    2. Related tiles move to front of bar
+                    3. focusedEntity stored for LLM context
+```
+
+### Entity-to-Tile Mapping
+
+```typescript
+const ENTITY_TILE_MAP: Record<string, string[]> = {
+  // Playground
+  'swing': ['pg_3', 'pg_4', 'pg_2'],      // Push me, Higher!, My turn
+  'slide': ['pg_2', 'pg_7'],               // My turn, Again
+  'children': ['pg_1', 'pg_2'],            // Can I play?, My turn
+
+  // Restaurant
+  'cashier': ['rc_3', 'rc_7'],             // How much?, Pay now
+  'menu': ['rc_2'],                        // Menu please
+  'food': ['rc_5', 'rc_1'],                // That one, Order
+};
+```
+
+### State Contract
+
+```typescript
+// In AACState
+detectedEntities: string[];      // ["swing", "child", "slide"]
+focusedEntity: string | null;    // "swing" when chip tapped
+
+// Actions
+| { type: 'SET_ENTITIES'; payload: string[] }
+| { type: 'FOCUS_ENTITY'; payload: string | null }
+```
+
+### UI Behavior
+
+| Action | Result |
+|--------|--------|
+| Chip tap | Select entity, highlight related tiles |
+| Chip tap again | Deselect, remove highlighting |
+| New frame | Update entities, clear focus if entity gone |
+
+---
+
 ## Implementation Notes
 
 - **Code location**: `src/lib/tiles.ts`
 - **Affirmation logic**: Implemented in `affirmContext()` function
 - **Grid generation**: Implemented in `generateGrid()` function
+- **Entity mapping**: Defined as `ENTITY_TILE_MAP` constant
 - **Tile bank**: Defined as `TILE_SETS` and `CORE_TILES` constants
+- **Entity chips**: `src/components/EntityChips.tsx`
+- **State management**: `src/hooks/useAACState.ts`

@@ -73,11 +73,13 @@ Geolocation ──► usePlaces ──► /api/places ──► Google Places AP
 | `src/app/api/tiles/route.ts` | REST fallback: Gemini 3 → ContextClassification |
 | `src/app/api/places/route.ts` | Google Places API → nearby place names |
 | `src/hooks/usePlaces.ts` | Fetches place name from GPS coordinates |
+| `src/hooks/useAACState.ts` | Central state: context, tiles, entities, focus |
 | `next.config.ts` | Exposes GEMINI_API_KEY to client via env block |
-| `src/lib/tiles.ts` | Affirmation logic + Grid generation engine |
+| `src/lib/tiles.ts` | Affirmation logic + Grid generation + ENTITY_TILE_MAP |
 | `src/components/Camera.tsx` | Dual-mode: WebSocket stream or REST POST |
 | `src/components/ContextPrompt.tsx` | Context confirmation UI ("McDonald's? ✓/✗") |
-| `src/components/TileGrid.tsx` | Tile display + click → native audio |
+| `src/components/EntityChips.tsx` | Tappable entity chips ("I see: 🎢 Swing") |
+| `src/components/TileGrid.tsx` | Tile display + entity highlighting + click → audio |
 | `src/lib/tts.ts` | Browser TTS (REST fallback only) |
 
 ### Domain Logic (`tiles.ts`)
@@ -91,8 +93,15 @@ Geolocation ──► usePlaces ──► /api/places ──► Google Places AP
 **Grid Generation Engine**:
 - Always includes `CORE_TILES` (Help, Yes, No, More)
 - Dynamically selects tiles from `TILE_SETS` based on `affirmedContext`
-- Scores tiles by `priority` + frequency (if profile available)
-- Renders in 3xN or 4xN grid based on `gridSize`
+- Scores tiles by `priority` + entity boost (+50 if entity detected)
+- Renders in horizontal scrollable bar (compact mode)
+
+**Entity Chips (Interactive Object Detection)**:
+- Gemini detects entities (objects/people) in camera view
+- Entities shown as tappable chips: `I see: [🎢 Swing] [👧 Child]`
+- On tap: related tiles highlight (yellow glow) + move to front
+- Uses `ENTITY_TILE_MAP` to link entities → tile IDs
+- State: `detectedEntities[]`, `focusedEntity`
 
 ### Gemini Integration (Authoritative)
 
