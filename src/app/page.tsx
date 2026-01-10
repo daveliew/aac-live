@@ -6,7 +6,6 @@ import TileGrid from '@/components/TileGrid';
 import ContextPrompt from '@/components/ContextPrompt';
 import ContextNotification from '@/components/ContextNotification';
 import ShiftAlertModal from '@/components/ShiftAlertModal';
-import ErrorToast from '@/components/ErrorToast';
 import { useAACState, APIResponse } from '@/hooks/useAACState';
 import { usePlaces } from '@/hooks/usePlaces';
 import { ContextType } from '@/lib/tiles';
@@ -17,7 +16,6 @@ export default function Home() {
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [lastSpoken, setLastSpoken] = useState<string | null>(null);
   const [showMultiChoice, setShowMultiChoice] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const lastCaptureRef = useRef<number>(0);
 
   // Places API for location names (e.g., "McDonald's")
