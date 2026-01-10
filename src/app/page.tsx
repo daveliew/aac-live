@@ -393,7 +393,6 @@ export default function Home() {
         mode={state.connectionMode}
         liveClient={liveClient}
         facingMode={cameraFacing}
-        onFlip={() => setCameraFacing(prev => prev === 'environment' ? 'user' : 'environment')}
         fullscreen
       />
 
@@ -411,9 +410,19 @@ export default function Home() {
             </div>
             <div className={`w-2 h-2 rounded-full ${statusColor} ml-1`} />
           </div>
-          <span className="text-white text-xl font-bold drop-shadow-lg">
-            Glimpse
-          </span>
+          <div className="flex items-center gap-3">
+            {/* Camera flip - mobile only */}
+            <button
+              onClick={() => setCameraFacing(prev => prev === 'environment' ? 'user' : 'environment')}
+              className="sm:hidden w-10 h-10 flex items-center justify-center bg-black/50 backdrop-blur-md rounded-full active:scale-95 transition-transform"
+              aria-label="Flip camera"
+            >
+              <span className="text-xl">{cameraFacing === 'environment' ? '🤳' : '📷'}</span>
+            </button>
+            <span className="text-white text-xl font-bold drop-shadow-lg">
+              Glimpse
+            </span>
+          </div>
         </header>
 
         {/* Last spoken feedback */}

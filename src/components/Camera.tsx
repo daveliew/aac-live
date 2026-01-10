@@ -10,10 +10,9 @@ interface CameraProps {
   liveClient?: GeminiLiveClient | null;
   fullscreen?: boolean;
   facingMode?: 'environment' | 'user';
-  onFlip?: () => void;
 }
 
-export default function Camera({ onCapture, mode = 'rest', liveClient, fullscreen = false, facingMode = 'environment', onFlip }: CameraProps) {
+export default function Camera({ onCapture, mode = 'rest', liveClient, fullscreen = false, facingMode = 'environment' }: CameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isReady, setIsReady] = useState(false);
@@ -116,17 +115,6 @@ export default function Camera({ onCapture, mode = 'rest', liveClient, fullscree
         className={`w-full h-full object-cover transition-opacity duration-700 ${isReady ? 'opacity-100' : 'opacity-0'} ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
       />
       <canvas ref={canvasRef} className="hidden" />
-
-      {/* Camera flip button */}
-      {onFlip && (
-        <button
-          onClick={onFlip}
-          className="absolute top-4 right-4 z-20 w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white text-2xl active:scale-95 transition-transform"
-          aria-label="Flip camera"
-        >
-          🔄
-        </button>
-      )}
 
       {!isReady && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 gap-4">
